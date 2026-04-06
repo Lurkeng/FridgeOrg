@@ -1,0 +1,48 @@
+{
+  "name": "freshtrack-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npx wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "npx wrangler d1 execute freshtrack-db --local --file=./drizzle/0001_initial.sql",
+    "db:migrate:prod": "npx wrangler d1 execute freshtrack-db --remote --file=./drizzle/0001_initial.sql",
+    "cf-typegen": "npx wrangler types",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.64.0",
+    "@tanstack/react-router": "^1.114.0",
+    "@tanstack/react-start": "^1.114.0",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
+    "better-auth": "^1.2.0",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.6.0",
+    "drizzle-orm": "^0.41.0",
+    "lucide-react": "^0.447.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.13.0",
+    "tailwind-merge": "^2.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.0.0",
+    "@cloudflare/workers-types": "^4.20250124.0",
+    "@playwright/test": "^1.49.1",
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "drizzle-kit": "^0.31.4",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.2",
+    "vite": "^7.0.0",
+    "wrangler": "^4.78.0"
+  }
+}

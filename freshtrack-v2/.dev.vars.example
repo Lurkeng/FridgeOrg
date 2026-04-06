@@ -1,0 +1,8 @@
+# Copy to `.dev.vars` in this folder (gitignored). Same variable names as `wrangler secret put` for production.
+# Wrangler / Miniflare injects these into Worker `env` during `npm run dev`.
+
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:5173
+
+ANTHROPIC_API_KEY=
+KASSALAPP_API_KEY=

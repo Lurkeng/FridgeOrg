@@ -1,0 +1,23 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "freshtrack",
+	"account_id": "db32ab8a63fb0b4b63f26ad45592e896",
+	"compatibility_date": "2025-12-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"main": "src/entry.ts",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "freshtrack-db",
+			"database_id": "a045cf70-e1c4-47df-b84b-8bf8a43a31b2"
+		}
+	],
+	"vars": {
+		"BETTER_AUTH_URL": "http://localhost:5173",
+		"APP_ENV": "development"
+	}
+	// Secrets: production → `wrangler secret put <NAME>`. Local dev → root `.dev.vars` (see `.dev.vars.example`).
+	// Names: BETTER_AUTH_SECRET, ANTHROPIC_API_KEY, KASSALAPP_API_KEY
+}

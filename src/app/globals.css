@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Custom Properties ────────────────────────────────────── */
+:root {
+  /* Glass surfaces */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-frost: rgba(240, 249, 255, 0.70);
+  --glass-border: rgba(255, 255, 255, 0.28);
+  --glass-border-subtle: rgba(255, 255, 255, 0.16);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0,0,0,0.04);
+  --glass-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.10), 0 4px 12px rgba(0,0,0,0.06);
+
+  /* Brand glows */
+  --glow-frost: 0 0 24px rgba(14, 165, 233, 0.22), 0 0 8px rgba(14,165,233,0.12);
+  --glow-fresh: 0 0 24px rgba(34, 197, 94, 0.22), 0 0 8px rgba(34,197,94,0.12);
+  --glow-danger: 0 0 24px rgba(239, 68, 68, 0.22), 0 0 8px rgba(239,68,68,0.12);
+  --glow-warning: 0 0 24px rgba(245, 158, 11, 0.22), 0 0 8px rgba(245,158,11,0.12);
+}
+
+/* ─── Base Reset & Body ─────────────────────────────────────────── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+  background-color: #f0f6ff;
+  background-image:
+    radial-gradient(at 15% 8%,  rgba(186, 230, 253, 0.55) 0px, transparent 52%),
+    radial-gradient(at 82% 18%, rgba(187, 247, 208, 0.40) 0px, transparent 50%),
+    radial-gradient(at 45% 78%, rgba(224, 242, 254, 0.55) 0px, transparent 52%),
+    radial-gradient(at 92% 88%, rgba(253, 230, 138, 0.18) 0px, transparent 48%),
+    radial-gradient(at 5%  90%, rgba(186, 230, 253, 0.25) 0px, transparent 45%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: #0f172a;
+  line-height: 1.6;
+  @apply antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(14, 165, 233, 0.22);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.38); }
+
+/* ─── Selection ─────────────────────────────────────────────────── */
+::selection { background: rgba(14, 165, 233, 0.18); color: #0c4a6e; }
+
+/* ─── Focus ─────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(14, 165, 233, 0.6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ─── Glass Utility Classes ─────────────────────────────────────── */
+@layer utilities {
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-frost {
+    background: var(--glass-bg-frost);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(147, 210, 253, 0.35);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-heavy {
+    background: rgba(255, 255, 255, 0.80);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-sidebar {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid var(--glass-border);
+    box-shadow: 2px 0 24px rgba(0,0,0,0.04);
+  }
+
+  /* Text gradients */
+  .text-gradient-frost {
+    background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 50%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-fresh {
+    background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-hero {
+    background: linear-gradient(135deg, #0c4a6e 0%, #0ea5e9 45%, #22c55e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glow utilities */
+  .glow-frost   { box-shadow: var(--glow-frost); }
+  .glow-fresh   { box-shadow: var(--glow-fresh); }
+  .glow-danger  { box-shadow: var(--glow-danger); }
+  .glow-warning { box-shadow: var(--glow-warning); }
+
+  /* Shimmer skeleton */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.55) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s linear infinite;
+  }
+
+  /* Stagger delays */
+  .stagger-1  { animation-delay: 0.06s;  animation-fill-mode: both; }
+  .stagger-2  { animation-delay: 0.12s;  animation-fill-mode: both; }
+  .stagger-3  { animation-delay: 0.18s;  animation-fill-mode: both; }
+  .stagger-4  { animation-delay: 0.24s;  animation-fill-mode: both; }
+  .stagger-5  { animation-delay: 0.30s;  animation-fill-mode: both; }
+  .stagger-6  { animation-delay: 0.36s;  animation-fill-mode: both; }
+  .stagger-7  { animation-delay: 0.42s;  animation-fill-mode: both; }
+  .stagger-8  { animation-delay: 0.48s;  animation-fill-mode: both; }
+
+  /* Card accent left borders */
+  .accent-bar-frost   { border-left: 3px solid #0ea5e9; }
+  .accent-bar-fresh   { border-left: 3px solid #22c55e; }
+  .accent-bar-warning { border-left: 3px solid #f59e0b; }
+  .accent-bar-danger  { border-left: 3px solid #ef4444; }
+  .accent-bar-gray    { border-left: 3px solid #94a3b8; }
+
+  /* Scrollbar thin (legacy compat) */
+  .scrollbar-thin { scrollbar-width: thin; }
+  .scrollbar-thin::-webkit-scrollbar { width: 5px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(14, 165, 233, 0.20);
+    border-radius: 999px;
+  }
+}
+
+/* ─── Backdrop blur utility (Tailwind plugin workaround) ─────────── */
+.backdrop-blur-glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ─── Scan line animation (for barcode scan overlay) ─────────────── */
+.animate-scan-line {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.9), transparent);
+  animation: scanLine 1.8s ease-in-out infinite;
+}
+
+/* ─── Reduced Motion ────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

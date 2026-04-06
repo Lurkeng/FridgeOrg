@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+dist/
+**/dist/
+
+# Playwright
+**/playwright-report/
+**/test-results/
+
+# Wrangler local state
+**/.wrangler/
+
+# misc
+.DS_Store
+*.pem
+
+# Local agent settings (may contain secrets or personal paths)
+.claude/settings.local.json
+
+# debug
+npm-debug.log*
+
+# local env files
+.env
+.env*.local
+
+# Cloudflare Workers local secrets (same keys as `wrangler secret put`)
+.dev.vars
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

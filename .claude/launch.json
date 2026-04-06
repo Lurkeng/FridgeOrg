@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "freshtrack-dev",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": ["node_modules/.bin/vite"],
+      "port": 5173,
+      "cwd": "freshtrack-v2"
+    }
+  ]
+}
