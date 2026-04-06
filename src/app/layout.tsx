@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ToastProvider } from '@/components/ui/Toast';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata: Metadata = {
   title: 'FreshTrack — Fridge & Freezer Organizer',
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
           </div>
         </ToastProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
