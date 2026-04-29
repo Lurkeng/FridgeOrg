@@ -3,15 +3,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { eq, and, gte, like, sql } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
-
-async function getUserHouseholdId(db: ReturnType<typeof getDb>, userId: string) {
-  const member = await db
-    .select({ householdId: schema.householdMembers.householdId })
-    .from(schema.householdMembers)
-    .where(eq(schema.householdMembers.userId, userId))
-    .limit(1);
-  return member[0]?.householdId ?? null;
-}
+import { getUserHouseholdId } from "@/server/household-context";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -101,7 +93,7 @@ async function computeMonthlyWasteScore(
 export const getAchievements = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
 
     // All achievements for this user
@@ -157,7 +149,7 @@ export const getAchievements = createServerFn({ method: "GET" })
 export const checkAndUnlockAchievements = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
 
     // Get existing achievements for this user
@@ -269,7 +261,7 @@ export const logRecipeCooked = createServerFn({ method: "POST" })
     recipeTitle: z.string().min(1),
   }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     // Create a unique achievement key per recipe cook event
     const key = `recipe_cooked_${Date.now()}`;

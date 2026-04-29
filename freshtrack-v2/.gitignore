@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.output/
+.vercel/
+
+# Local env files (contain secrets — never commit)
+.env.local
+.dev.vars
+
+# Drizzle local SQLite file
+local.db
+local.db-shm
+local.db-wal
+
+# Editor
+.DS_Store

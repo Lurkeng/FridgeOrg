@@ -1,16 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@/auth";
-import { getWorkerEnv } from "@/lib/env";
 
 /**
  * Catch-all route that forwards every /api/auth/* request to better-auth.
- * Bindings come from `getWorkerEnv(context)` (custom Worker entry and/or `cloudflare:workers`).
  */
 
-async function handleAuth(request: Request, context: unknown): Promise<Response> {
+async function handleAuth(request: Request): Promise<Response> {
   try {
-    const env = getWorkerEnv(context);
-    const auth = getAuth(env);
+    const auth = getAuth();
     const response = await auth.handler(request);
 
     // Log non-OK responses so we can see what better-auth is returning
@@ -36,8 +33,8 @@ async function handleAuth(request: Request, context: unknown): Promise<Response>
 export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET:  ({ request, context }) => handleAuth(request, context),
-      POST: ({ request, context }) => handleAuth(request, context),
+      GET:  ({ request }) => handleAuth(request),
+      POST: ({ request }) => handleAuth(request),
     },
   },
 });

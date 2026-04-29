@@ -2,24 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { getDb, schema } from "@/db";
 import { eq, asc, desc } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-async function getUserHouseholdId(db: ReturnType<typeof getDb>, userId: string) {
-  const member = await db
-    .select({ householdId: schema.householdMembers.householdId })
-    .from(schema.householdMembers)
-    .where(eq(schema.householdMembers.userId, userId))
-    .limit(1);
-  return member[0]?.householdId ?? null;
-}
+import { getUserHouseholdId } from "@/server/household-context";
 
 // ── EXPORT all user data ──────────────────────────────────────────────────
 
 export const exportAllData = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) {
       return {

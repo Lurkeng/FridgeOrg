@@ -1,19 +1,10 @@
 /**
- * Custom Cloudflare Worker entry for TanStack Start.
+ * Server entry for Node.js / Vercel deployments.
  *
- * The built-in `@tanstack/react-start/server-entry` discards the Cloudflare
- * `env` bindings (D1, secrets, etc.) because it doesn't know about them.
- * This entry captures `env` and injects it into TanStack Start's request
- * context so that server functions and middleware can read it via
- * `(context as { env: Env }).env`.
+ * With the Vercel preset, TanStack Start / Nitro generates a proper
+ * serverless handler automatically. This file is kept as a fallback
+ * for local `vite preview` (Node.js HTTP server mode).
  */
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
 
-const handler = createStartHandler(defaultStreamHandler);
-
-export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return handler(request, { context: { env } as any });
-  },
-} satisfies ExportedHandler<Env>;
+export default createStartHandler(defaultStreamHandler);

@@ -18,7 +18,7 @@ const DEFAULT_PREFS: RecipePreferences = {
 export const getRecipePreferences = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<RecipePreferences> => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     const [row] = await db
       .select()
@@ -51,7 +51,7 @@ export const saveRecipePreferences = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(prefsSchema)
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     const values = {
       userId:               context.userId,

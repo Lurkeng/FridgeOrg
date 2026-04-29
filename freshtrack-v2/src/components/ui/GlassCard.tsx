@@ -18,9 +18,9 @@ interface GlassCardProps {
 const variantClasses: Record<GlassVariant, string> = {
   default: 'glass',
   frost:   'glass-frost',
-  fresh:   'backdrop-blur-glass bg-fresh-50/65 border border-fresh-200/35',
-  warning: 'backdrop-blur-[12px] bg-warning-50/65 border border-warning-200/35',
-  danger:  'backdrop-blur-[12px] bg-danger-50/65 border border-danger-200/35',
+  fresh:   'glass bg-fresh-50/65 border-fresh-200/60',
+  warning: 'glass bg-warning-50/65 border-warning-200/60',
+  danger:  'glass bg-danger-50/65 border-danger-200/60',
 };
 
 const accentClasses: Record<string, string> = {
@@ -44,6 +44,7 @@ export default function GlassCard({
   as: Tag = 'div',
 }: GlassCardProps) {
   const style = staggerIndex !== undefined ? staggerDelay(staggerIndex) : undefined;
+  const isInteractive = Boolean(onClick);
 
   return (
     <Tag
@@ -53,11 +54,19 @@ export default function GlassCard({
         accentBar && accentClasses[accentBar],
         hover && 'transition-all duration-300 hover:-translate-y-1 hover:shadow-glass-hover',
         animate && 'animate-fade-in-up',
-        onClick && 'cursor-pointer',
+        isInteractive && 'cursor-pointer focus-visible:ring-2 focus-visible:ring-frost-400/60',
         className,
       )}
       style={style}
       onClick={onClick}
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onKeyDown={isInteractive ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick?.();
+        }
+      } : undefined}
     >
       {children}
     </Tag>

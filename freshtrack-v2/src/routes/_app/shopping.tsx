@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Modal } from "@/components/ui/Modal";
 import GlassCard from "@/components/ui/GlassCard";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { cn, getCategoryEmoji, formatRelativeDate } from "@/lib/utils";
 import type { FoodCategory, ShoppingListItem, StorePriceEntry } from "@/types";
@@ -171,7 +172,7 @@ function ShoppingPage() {
   const {
     uncheckedItems, checkedItems, byCategory, estimatedTotal,
     isLoading, addItem, toggleItem, deleteItem, clearChecked,
-    fetchAllPrices, isFetchingPrices,
+    fetchPrices, fetchAllPrices, isFetchingPrices,
   } = useShoppingList();
   const { recentItems, expiringItems } = useRestockSuggestions();
   const { predictions } = useRestockPredictions();
@@ -181,6 +182,7 @@ function ShoppingPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const [quickAddText, setQuickAddText] = useState("");
+  const [pricingItemId, setPricingItemId] = useState<string | null>(null);
 
   // Sort mode — persisted in localStorage
   const [sortMode, setSortMode] = useState<SortMode>(() => {
@@ -282,6 +284,22 @@ function ShoppingPage() {
     }
   };
 
+  const handleFetchItemPrices = async (item: ShoppingListItem) => {
+    setPricingItemId(item.id);
+    try {
+      const result = await fetchPrices(item.id);
+      if (result.prices.length > 0) {
+        toast(`Cheapest price found for ${item.name}`, "success");
+      } else {
+        toast(`No prices found for ${item.name}`, "info");
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to fetch prices", "error");
+    } finally {
+      setPricingItemId(null);
+    }
+  };
+
   const handleAddSuggestion = async (name: string, category: string) => {
     try {
       await addItem({
@@ -316,26 +334,7 @@ function ShoppingPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="p-4 md:p-8 max-w-5xl mx-auto">
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/40 animate-pulse" />
-            <div>
-              <div className="h-7 w-32 rounded-2xl bg-white/40 animate-pulse mb-1" />
-              <div className="h-4 w-24 rounded-2xl bg-white/40 animate-pulse" />
-            </div>
-          </div>
-          <div className="h-10 w-28 rounded-xl bg-white/40 animate-pulse" />
-        </div>
-        <div className="h-12 rounded-2xl bg-white/40 animate-pulse mb-6" />
-        <div className="space-y-3">
-          <div className="h-14 rounded-xl bg-white/40 animate-pulse" />
-          <div className="h-14 rounded-xl bg-white/40 animate-pulse" />
-          <div className="h-14 rounded-xl bg-white/40 animate-pulse" />
-        </div>
-      </div>
-    );
+    return <PageSkeleton cards={4} />;
   }
 
   const totalItems = uncheckedItems.length + checkedItems.length;
@@ -357,7 +356,7 @@ function ShoppingPage() {
                 className="inline-flex items-center gap-2 px-4 py-2.5 glass rounded-xl text-sm font-semibold text-frost-700 hover:bg-frost-50/80 transition-all disabled:opacity-50"
               >
                 <RefreshCw className={cn("w-4 h-4", isFetchingPrices && "animate-spin")} />
-                {isFetchingPrices ? "Checking\u2026" : "Compare Prices"}
+                {isFetchingPrices ? "Checking\u2026" : "Cheapest overall"}
               </button>
             )}
             <button
@@ -478,6 +477,8 @@ function ShoppingPage() {
                     item={item}
                     onToggle={handleToggle}
                     onDelete={handleDelete}
+                    onFetchPrices={handleFetchItemPrices}
+                    isFetchingPrices={pricingItemId === item.id}
                   />
                 ))}
               </div>
@@ -521,6 +522,8 @@ function ShoppingPage() {
                 item={item}
                 onToggle={handleToggle}
                 onDelete={handleDelete}
+                onFetchPrices={handleFetchItemPrices}
+                isFetchingPrices={pricingItemId === item.id}
               />
             ))}
           </div>
@@ -841,11 +844,13 @@ function ShoppingPage() {
 // ── Individual item row ──────────────────────────────────────────────────
 
 function ShoppingItemRow({
-  item, onToggle, onDelete,
+  item, onToggle, onDelete, onFetchPrices, isFetchingPrices,
 }: {
   item: ShoppingListItem;
   onToggle: (item: ShoppingListItem) => void;
   onDelete: (id: string) => void;
+  onFetchPrices: (item: ShoppingListItem) => void;
+  isFetchingPrices: boolean;
 }) {
   const [showPrices, setShowPrices] = useState(false);
   const prices: StorePriceEntry[] = item.comparison_prices ?? [];
@@ -878,6 +883,16 @@ function ShoppingItemRow({
           <p className="text-xs text-slate-400 mt-0.5 truncate">{item.notes}</p>
         )}
       </div>
+
+      {/* Price actions */}
+      <button
+        onClick={() => onFetchPrices(item)}
+        disabled={isFetchingPrices}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-frost-50/80 text-frost-700 text-xs font-semibold hover:bg-frost-100/80 transition-all flex-shrink-0 disabled:opacity-50"
+      >
+        <RefreshCw className={cn("w-3 h-3", isFetchingPrices && "animate-spin")} />
+        {isFetchingPrices ? "Checking" : "Cheapest"}
+      </button>
 
       {/* Price chip */}
       {item.cheapest_price != null && (

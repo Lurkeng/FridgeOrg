@@ -1,21 +1,25 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useFoodItems } from "@/hooks/useFoodItems";
 import { useShoppingList } from "@/hooks/useShoppingList";
 import { useAIRecipes } from "@/hooks/useAIRecipes";
 import { useRecipePreferences } from "@/hooks/useRecipePreferences";
+import { useSavedRecipes } from "@/hooks/useSavedRecipes";
 import { useToast } from "@/components/ui/Toast";
 import { findMatchingRecipes } from "@/data/recipes";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Modal } from "@/components/ui/Modal";
 import GlassCard from "@/components/ui/GlassCard";
 import { Badge } from "@/components/ui/Badge";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import {
   BookOpen, ChefHat, Sparkles, RefreshCw, Check, X,
   Clock, Users, ChevronDown, ChevronUp, Settings2, Flame,
   Zap, Leaf, Save, ShoppingCart, CheckCircle, Package,
+  Plus, Star, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Recipe, AIRecipe, RecipePreferences, MealGoal, CalorieRange, ProteinTarget, DietaryRestriction } from "@/types";
+import type { Recipe, AIRecipe, RecipePreferences, MealGoal, CalorieRange, ProteinTarget, DietaryRestriction, SavedRecipe } from "@/types";
 
 export const Route = createFileRoute("/_app/recipes")({
   component: RecipesPage,
@@ -119,16 +123,23 @@ interface RecipeCardProps {
   onCookConfirm?: (recipe: Recipe | AIRecipe) => void;
   onCookCancel?: () => void;
   isAddingToList?: boolean;
+  onSaveFavourite?: (recipe: Recipe | AIRecipe) => void;
+  isSaved?: boolean;
+  isSavingRecipe?: boolean;
+  onDeleteSaved?: (recipe: SavedRecipe) => void;
+  isDeletingSaved?: boolean;
 }
 
 function RecipeCard({
   recipe, index, ai,
   addedToList, cookedState = "idle",
   onAddToShoppingList, onCookRecipe, onCookConfirm, onCookCancel,
-  isAddingToList,
+  isAddingToList, onSaveFavourite, isSaved, isSavingRecipe,
+  onDeleteSaved, isDeletingSaved,
 }: RecipeCardProps) {
   const [expanded, setExpanded] = useState(false);
   const aiRecipe = ai ? (recipe as AIRecipe) : null;
+  const savedRecipe = "source" in recipe ? (recipe as SavedRecipe) : null;
   const hasMissing = recipe.missingIngredients.length > 0;
 
   return (
@@ -141,6 +152,8 @@ function RecipeCard({
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h3 className="font-bold text-slate-800">{recipe.title}</h3>
               {ai && <Badge variant="info" size="sm"><Sparkles className="w-3 h-3 inline mr-0.5" />AI</Badge>}
+              {savedRecipe?.source === "custom" && <Badge variant="success" size="sm">Yours</Badge>}
+              {savedRecipe?.source === "ai_favourite" && <Badge variant="info" size="sm"><Star className="w-3 h-3 inline mr-0.5" />Favourite</Badge>}
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{recipe.prepTime}m</span>
@@ -203,6 +216,33 @@ function RecipeCard({
                   Add {recipe.missingIngredients.length} missing to list
                 </>
               )}
+            </button>
+          )}
+
+          {ai && onSaveFavourite && (
+            <button
+              onClick={() => onSaveFavourite(recipe)}
+              disabled={isSaved || isSavingRecipe}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all border",
+                isSaved
+                  ? "bg-warning-100 text-warning-700 border-warning-200/60 cursor-default"
+                  : "glass text-slate-700 border-white/40 hover:border-warning-200 hover:text-warning-700 disabled:opacity-60",
+              )}
+            >
+              <Star className="w-3.5 h-3.5" />
+              {isSaved ? "Saved favourite" : isSavingRecipe ? "Saving…" : "Save favourite"}
+            </button>
+          )}
+
+          {savedRecipe && onDeleteSaved && (
+            <button
+              onClick={() => onDeleteSaved(savedRecipe)}
+              disabled={isDeletingSaved}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold glass text-danger-600 border border-white/40 hover:border-danger-200 transition-all disabled:opacity-60"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {isDeletingSaved ? "Removing…" : "Remove"}
             </button>
           )}
 
@@ -531,11 +571,162 @@ function normalizeForMatch(name: string): string {
     .trim();
 }
 
+function hydrateSavedRecipe(recipe: SavedRecipe, itemNames: string[]): SavedRecipe {
+  const normalizedInventory = itemNames.map(normalizeForMatch);
+  const matchedIngredients = recipe.ingredients.filter((ingredient) => {
+    const normalized = normalizeForMatch(ingredient);
+    return normalizedInventory.some((item) => item.includes(normalized) || normalized.includes(item));
+  });
+  const missingIngredients = recipe.ingredients.filter((ingredient) => !matchedIngredients.includes(ingredient));
+
+  return {
+    ...recipe,
+    matchedIngredients,
+    missingIngredients,
+    matchPercentage: recipe.ingredients.length > 0
+      ? Math.round((matchedIngredients.length / recipe.ingredients.length) * 100)
+      : 0,
+  };
+}
+
+function splitLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function RecipeForm({
+  onSubmit,
+  isSaving,
+}: {
+  onSubmit: (recipe: {
+    title: string;
+    ingredients: string[];
+    instructions: string[];
+    tags: string[];
+    prepTime: number;
+    servings: number;
+  }) => void;
+  isSaving: boolean;
+}) {
+  const [title, setTitle] = useState("");
+  const [ingredients, setIngredients] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [tags, setTags] = useState("");
+  const [prepTime, setPrepTime] = useState(20);
+  const [servings, setServings] = useState(2);
+
+  return (
+    <form
+      className="space-y-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const parsedIngredients = splitLines(ingredients);
+        const parsedInstructions = splitLines(instructions);
+        if (!title.trim() || parsedIngredients.length === 0 || parsedInstructions.length === 0) return;
+        onSubmit({
+          title: title.trim(),
+          ingredients: parsedIngredients,
+          instructions: parsedInstructions,
+          tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+          prepTime,
+          servings,
+        });
+      }}
+    >
+      <div className="space-y-1.5">
+        <label htmlFor="recipe-title" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Recipe name</label>
+        <input
+          id="recipe-title"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          placeholder="Tuesday tomato pasta"
+          required
+        />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label htmlFor="recipe-prep-time" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Prep time</label>
+          <input
+            id="recipe-prep-time"
+            type="number"
+            min={1}
+            value={prepTime}
+            onChange={(event) => setPrepTime(Number(event.target.value))}
+            className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="recipe-servings" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Servings</label>
+          <input
+            id="recipe-servings"
+            type="number"
+            min={1}
+            value={servings}
+            onChange={(event) => setServings(Number(event.target.value))}
+            className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="recipe-ingredients" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Ingredients, one per line</label>
+        <textarea
+          id="recipe-ingredients"
+          value={ingredients}
+          onChange={(event) => setIngredients(event.target.value)}
+          className="w-full min-h-32 glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          placeholder={"tomato\npasta\ngarlic\nolive oil"}
+          required
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="recipe-instructions" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Instructions, one step per line</label>
+        <textarea
+          id="recipe-instructions"
+          value={instructions}
+          onChange={(event) => setInstructions(event.target.value)}
+          className="w-full min-h-32 glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          placeholder={"Boil pasta.\nWarm garlic and tomatoes.\nToss together."}
+          required
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="recipe-tags" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Tags</label>
+        <input
+          id="recipe-tags"
+          value={tags}
+          onChange={(event) => setTags(event.target.value)}
+          className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          placeholder="quick, dinner, leftover-friendly"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={isSaving}
+        className="w-full py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-bold shadow-glow-frost transition-all disabled:opacity-60"
+      >
+        {isSaving ? "Saving…" : "Save recipe"}
+      </button>
+    </form>
+  );
+}
+
 function RecipesPage() {
   const { items, isLoading, updateItem, markConsumed } = useFoodItems();
   const { addItem: addShoppingItem } = useShoppingList();
+  const {
+    savedRecipes,
+    isLoading: savedRecipesLoading,
+    saveRecipe,
+    deleteSavedRecipe,
+    isSaving: isSavingRecipe,
+    deletingId,
+  } = useSavedRecipes();
   const { toast } = useToast();
-  const [activeTab, setActiveTab]       = useState<"classic" | "ai">("classic");
+  const [activeTab, setActiveTab]       = useState<"saved" | "classic" | "ai">("saved");
+  const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
   const [showPrefs, setShowPrefs]       = useState(false);
   const [filter, setFilter]             = useState<RecipeFilter>("all");
   const [addedToListIds, setAddedToListIds] = useState<Set<string>>(new Set());
@@ -546,6 +737,8 @@ function RecipesPage() {
 
   const itemNames       = items.map((i) => i.name);
   const classicRecipes  = findMatchingRecipes(itemNames).slice(0, 12);
+  const matchedSavedRecipes = savedRecipes.map((recipe) => hydrateSavedRecipe(recipe, itemNames));
+  const savedOriginalIds = new Set(savedRecipes.flatMap((recipe) => [recipe.originalRecipeId, recipe.id]).filter(Boolean));
 
   const runAISuggest = (prefs: RecipePreferences = preferences) => {
     if (items.length > 0) {
@@ -564,6 +757,52 @@ function RecipesPage() {
   const handleSavePrefs = (prefs: RecipePreferences) => {
     savePreferences(prefs);
     if (activeTab === "ai") runAISuggest(prefs);
+  };
+
+  const handleCreateRecipe = async (recipe: {
+    title: string;
+    ingredients: string[];
+    instructions: string[];
+    tags: string[];
+    prepTime: number;
+    servings: number;
+  }) => {
+    try {
+      await saveRecipe({ ...recipe, source: "custom" });
+      setShowAddRecipeModal(false);
+      setActiveTab("saved");
+      toast(`${recipe.title} saved`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to save recipe", "error");
+    }
+  };
+
+  const handleSaveFavourite = async (recipe: Recipe | AIRecipe) => {
+    try {
+      await saveRecipe({
+        source: "ai_favourite",
+        title: recipe.title,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        tags: recipe.tags,
+        prepTime: recipe.prepTime,
+        servings: recipe.servings,
+        estimatedMacros: "estimatedMacros" in recipe ? recipe.estimatedMacros : undefined,
+        originalRecipeId: recipe.id,
+      });
+      toast(`${recipe.title} saved to favourites`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to save favourite", "error");
+    }
+  };
+
+  const handleDeleteSavedRecipe = async (recipe: SavedRecipe) => {
+    try {
+      await deleteSavedRecipe(recipe.id);
+      toast(`${recipe.title} removed`, "info");
+    } catch {
+      toast("Failed to remove recipe", "error");
+    }
   };
 
   // ── Add missing ingredients to shopping list ────────────────────────────
@@ -629,29 +868,12 @@ function RecipesPage() {
 
   // ── Filtered lists ──────────────────────────────────────────────────────
 
+  const filteredSaved   = applyRecipeFilter(matchedSavedRecipes, filter);
   const filteredClassic = applyRecipeFilter(classicRecipes, filter);
   const filteredAI      = applyRecipeFilter(ai.recipes, filter);
 
-  if (isLoading) {
-    return (
-      <div className="p-4 md:p-8 max-w-5xl mx-auto">
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/40 animate-pulse" />
-            <div>
-              <div className="h-7 w-24 rounded-2xl bg-white/40 animate-pulse mb-1" />
-              <div className="h-4 w-40 rounded-2xl bg-white/40 animate-pulse" />
-            </div>
-          </div>
-        </div>
-        <div className="h-12 rounded-2xl bg-white/40 animate-pulse mb-5" />
-        <div className="h-10 rounded-2xl bg-white/40 animate-pulse mb-5 w-2/3" />
-        <div className="grid gap-4">
-          <div className="h-48 rounded-2xl bg-white/40 animate-pulse" />
-          <div className="h-48 rounded-2xl bg-white/40 animate-pulse" />
-        </div>
-      </div>
-    );
+  if (isLoading || savedRecipesLoading) {
+    return <PageSkeleton cards={3} />;
   }
 
   return (
@@ -660,13 +882,36 @@ function RecipesPage() {
         title="Recipes"
         subtitle="What can you cook with what you have?"
         icon={<BookOpen className="w-5 h-5 text-warning-600" />}
+        actions={
+          <button
+            onClick={() => setShowAddRecipeModal(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost transition-all active:scale-[0.97]"
+          >
+            <Plus className="w-4 h-4" /> Add Recipe
+          </button>
+        }
       />
 
       {/* Tab switcher */}
       <div className="flex items-center gap-3 mb-5 animate-fade-in-up stagger-1">
-        <div className="flex gap-1 glass rounded-2xl p-1.5">
+        <div className="flex gap-1 glass rounded-2xl p-1.5" role="tablist" aria-label="Recipe source">
+          <button
+            onClick={() => setActiveTab("saved")}
+            role="tab"
+            aria-selected={activeTab === "saved"}
+            className={cn(
+              "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
+              activeTab === "saved"
+                ? "glass-heavy text-slate-800 shadow-glass"
+                : "text-slate-500 hover:text-slate-700 hover:bg-white/30"
+            )}
+          >
+            <Star className={cn("w-4 h-4", activeTab === "saved" && "text-warning-500")} /> Saved
+          </button>
           <button
             onClick={() => setActiveTab("classic")}
+            role="tab"
+            aria-selected={activeTab === "classic"}
             className={cn(
               "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
               activeTab === "classic"
@@ -678,6 +923,8 @@ function RecipesPage() {
           </button>
           <button
             onClick={handleAITab}
+            role="tab"
+            aria-selected={activeTab === "ai"}
             className={cn(
               "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
               activeTab === "ai"
@@ -708,6 +955,54 @@ function RecipesPage() {
 
       {/* Filter pills — shown for both tabs */}
       <FilterPills filter={filter} onChange={setFilter} />
+
+      {/* Saved Recipes */}
+      {activeTab === "saved" && (
+        <>
+          {matchedSavedRecipes.length > 0 ? (
+            filteredSaved.length > 0 ? (
+              <div className="grid gap-4">
+                {filteredSaved.map((r, i) => (
+                  <RecipeCard
+                    key={r.id}
+                    recipe={r}
+                    index={i}
+                    addedToList={addedToListIds.has(r.id)}
+                    isAddingToList={addingRecipeId === r.id}
+                    cookedState={cookingState[r.id] ?? "idle"}
+                    onAddToShoppingList={handleAddToShoppingList}
+                    onCookRecipe={handleCookRecipe}
+                    onCookConfirm={handleCookConfirm}
+                    onCookCancel={() => handleCookCancel(r.id)}
+                    onDeleteSaved={handleDeleteSavedRecipe}
+                    isDeletingSaved={deletingId === r.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <GlassCard className="text-center py-12 px-8" hover={false}>
+                <div className="text-4xl mb-3 inline-block">🔍</div>
+                <h3 className="font-bold text-slate-800 mb-1.5">No saved recipes match this filter</h3>
+                <p className="text-sm text-slate-500">Try a different filter or save a new recipe.</p>
+              </GlassCard>
+            )
+          ) : (
+            <GlassCard className="text-center py-16 px-8" hover={false}>
+              <div className="text-6xl mb-5 animate-float inline-block">⭐</div>
+              <h3 className="font-bold text-slate-800 text-lg mb-2">No saved recipes yet</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
+                Add your own household recipes or save favourites from the AI tab.
+              </p>
+              <button
+                onClick={() => setShowAddRecipeModal(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost transition-all active:scale-[0.97]"
+              >
+                <Plus className="w-4 h-4" /> Add Recipe
+              </button>
+            </GlassCard>
+          )}
+        </>
+      )}
 
       {/* Classic Recipes */}
       {activeTab === "classic" && (
@@ -744,9 +1039,9 @@ function RecipesPage() {
               <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
                 Add more items to your inventory and we'll match you with recipes you can cook right now.
               </p>
-              <a href="/items" className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.97]">
+              <Link to="/items" className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.97]">
                 <Package className="w-4 h-4" /> Add Items
-              </a>
+              </Link>
             </GlassCard>
           )}
         </>
@@ -832,6 +1127,9 @@ function RecipesPage() {
                       onCookRecipe={handleCookRecipe}
                       onCookConfirm={handleCookConfirm}
                       onCookCancel={() => handleCookCancel(r.id)}
+                      onSaveFavourite={handleSaveFavourite}
+                      isSaved={savedOriginalIds.has(r.id)}
+                      isSavingRecipe={isSavingRecipe}
                     />
                   ))}
                 </div>
@@ -854,6 +1152,15 @@ function RecipesPage() {
           )}
         </>
       )}
+
+      <Modal
+        isOpen={showAddRecipeModal}
+        onClose={() => setShowAddRecipeModal(false)}
+        title="Add your recipe"
+        size="lg"
+      >
+        <RecipeForm onSubmit={handleCreateRecipe} isSaving={isSavingRecipe} />
+      </Modal>
     </div>
   );
 }

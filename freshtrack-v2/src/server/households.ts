@@ -13,7 +13,7 @@ function generateInviteCode(): string {
 export const getMyHousehold = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     const membership = await db
       .select({
@@ -34,7 +34,7 @@ export const createHousehold = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(z.object({ name: z.string().min(1).max(100) }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     // Prevent duplicate household creation
     const existing = await db
@@ -71,7 +71,7 @@ export const joinHousehold = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(z.object({ inviteCode: z.string().length(6) }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     const [household] = await db
       .select()
@@ -107,7 +107,7 @@ export const joinHousehold = createServerFn({ method: "POST" })
 export const getHouseholdMembers = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     const membership = await db
       .select({ householdId: schema.householdMembers.householdId })
@@ -137,7 +137,7 @@ export const getHouseholdMembers = createServerFn({ method: "GET" })
 export const regenerateInviteCode = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
 
     const membership = await db
       .select()

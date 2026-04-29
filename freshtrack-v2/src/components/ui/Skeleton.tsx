@@ -23,6 +23,33 @@ export function Skeleton({ className, count = 1 }: SkeletonProps) {
   );
 }
 
+interface PageSkeletonProps {
+  cards?: number;
+}
+
+/** Generic page-level skeleton for route loading states */
+export function PageSkeleton({ cards = 3 }: PageSkeletonProps) {
+  return (
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <div className="flex items-start justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-11 h-11 rounded-2xl" />
+          <div>
+            <Skeleton className="h-7 w-32 mb-1" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-28 rounded-xl" />
+      </div>
+      <Skeleton className="h-12 rounded-2xl mb-5" />
+      <Skeleton className="h-10 rounded-2xl mb-5 w-2/3" />
+      <div className="grid gap-4">
+        <Skeleton className="h-36 rounded-2xl" count={cards} />
+      </div>
+    </div>
+  );
+}
+
 /** Dashboard skeleton — matches the stat card + section layout */
 export function DashboardSkeleton() {
   return (

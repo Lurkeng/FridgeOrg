@@ -6,7 +6,7 @@ import { useAchievements, useCheckAchievements } from "@/hooks/useAchievements";
 import { useCountUp } from "@/hooks/useCountUp";
 import GlassCard from "@/components/ui/GlassCard";
 import { Badge } from "@/components/ui/Badge";
-import { DashboardSkeleton } from "@/components/ui/Skeleton";
+import { DashboardSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { cn, getCategoryEmoji, getExpiryStatus, formatRelativeDate } from "@/lib/utils";
 import { Package, Refrigerator, Snowflake, AlertTriangle, Apple, ScanLine, ArrowRight, AlertCircle, Sparkles, TrendingDown, TrendingUp, PartyPopper, Coins, Lock, Flame, Leaf } from "lucide-react";
@@ -26,20 +26,20 @@ function StatCard({ label, value, icon: Icon, gradient, glowClass, delay, alert,
   return (
     <GlassCard
       className={cn(
-        'p-5',
+        'dashboard-stat p-5',
         alert && value > 0 && 'ring-2 ring-warning-300/60',
         variant === 'warning' && value > 0 && 'bg-warning-50/40',
       )}
       staggerIndex={delay}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${gradient} shadow-sm`}>
-          <Icon className="w-5 h-5 text-white" strokeWidth={2} />
+        <div className={`flex h-10 w-10 items-center justify-center border border-[var(--ft-ink)] ${gradient}`}>
+          <Icon className="w-5 h-5 text-[var(--ft-bone)]" strokeWidth={1.8} />
         </div>
-        {alert && value > 0 && <span className="w-2.5 h-2.5 rounded-full bg-warning-400 animate-pulse-soft ring-4 ring-warning-200/40" />}
+        {alert && value > 0 && <span className="h-2.5 w-2.5 bg-[var(--ft-signal)]" />}
       </div>
-      <p className={`text-3xl font-bold ${glowClass} mb-1 tracking-tight`}>{animatedValue}</p>
-      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+      <p className={`dashboard-display mb-1 text-5xl font-black leading-none ${glowClass}`}>{animatedValue}</p>
+      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[rgba(21,19,15,0.58)]">{label}</p>
     </GlassCard>
   );
 }
@@ -61,12 +61,12 @@ function ActionCard({ to, emoji, title, desc, gradient, delay }: {
 }) {
   return (
     <Link to={to} className="block group">
-      <GlassCard className="p-6 cursor-pointer overflow-hidden relative" staggerIndex={delay} hover>
-        <div className={`absolute inset-x-0 top-0 h-1 ${gradient} rounded-t-2xl opacity-80 group-hover:opacity-100 transition-opacity`} />
-        <div className="text-3xl mb-3 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 inline-block">{emoji}</div>
-        <h3 className="font-bold text-slate-800 group-hover:text-frost-700 transition-colors mb-1.5">{title}</h3>
-        <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
-        <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-frost-600 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+      <GlassCard className="relative cursor-pointer overflow-hidden p-6" staggerIndex={delay} hover>
+        <div className={`absolute inset-x-0 top-0 h-1 ${gradient} opacity-90`} />
+        <div className="mb-3 inline-block text-3xl transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-110">{emoji}</div>
+        <h3 className="mb-1.5 font-mono text-[12px] font-black uppercase tracking-[0.14em] text-[var(--ft-ink)] transition-colors group-hover:text-[var(--ft-signal)]">{title}</h3>
+        <p className="text-sm leading-relaxed text-[rgba(21,19,15,0.62)]">{desc}</p>
+        <div className="mt-4 flex translate-x-2 items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ft-signal)] opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
           Open <ArrowRight className="w-3 h-3" />
         </div>
       </GlassCard>
@@ -106,7 +106,7 @@ function WasteSummaryBanner({ stats }: { stats: WasteStats }) {
   }
 
   return (
-    <div className="glass-frost rounded-2xl p-4 mb-6 animate-fade-in-up stagger-4">
+      <div className="glass-frost p-4 mb-6 animate-fade-in-up stagger-4">
       {!hasWasteThisMonth ? (
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-fresh-500/15 flex items-center justify-center flex-shrink-0">
@@ -114,7 +114,7 @@ function WasteSummaryBanner({ stats }: { stats: WasteStats }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-fresh-800">Zero waste this month!</p>
-            <p className="text-xs text-fresh-600">Keep it up — every item used is money saved.</p>
+            <p className="text-xs text-fresh-600">Keep it up. Every item used is money saved.</p>
           </div>
         </div>
       ) : (
@@ -200,7 +200,19 @@ function AchievementsPanel() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (isLoading || !stats) return null;
+  if (isLoading) {
+    return (
+      <div className="mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <Skeleton className="h-20" count={2} />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+          <Skeleton className="h-20" count={7} />
+        </div>
+      </div>
+    );
+  }
+  if (!stats) return null;
 
   const unlockedKeys = new Set(
     stats.achievements
@@ -229,7 +241,7 @@ function AchievementsPanel() {
             </p>
             <p className="text-xs text-slate-500">
               {stats.wasteStreak > 0
-                ? "Keep it going — every day counts"
+                ? "Keep it going. Every day counts."
                 : "Avoid food waste to build your streak"}
             </p>
           </div>
@@ -249,11 +261,11 @@ function AchievementsPanel() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-800">Monthly Waste Score</p>
             <p className="text-xs text-slate-500">
-              {stats.monthlyWasteScore === "A" && "Excellent! 50%+ less waste than last month"}
-              {stats.monthlyWasteScore === "B" && "Great \u2014 20-50% less waste than last month"}
-              {stats.monthlyWasteScore === "C" && "Good \u2014 slightly less waste than last month"}
+              {stats.monthlyWasteScore === "A" && "Excellent. 50%+ less waste than last month"}
+              {stats.monthlyWasteScore === "B" && "Great. 20-50% less waste than last month"}
+              {stats.monthlyWasteScore === "C" && "Good. Slightly less waste than last month"}
               {stats.monthlyWasteScore === "D" && "Waste increased a little this month"}
-              {stats.monthlyWasteScore === "F" && "Waste increased significantly \u2014 you can do better!"}
+              {stats.monthlyWasteScore === "F" && "Waste increased significantly. You can do better."}
             </p>
           </div>
         </GlassCard>
@@ -388,14 +400,18 @@ function DashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-6xl p-4 md:p-8">
       {/* ── Header ─────────────────────────────────────────── */}
-      <div className="mb-8 animate-fade-in-up">
-        <div className="flex items-center gap-2.5 mb-1.5">
-          <span className="text-2xl" role="img" aria-label="wave">&#x1F44B;</span>
-          <h1 className="text-2xl font-bold text-gradient-hero tracking-tight">Welcome back!</h1>
+      <div className="mb-8 grid gap-5 border-b border-[var(--ft-ink)] pb-6 animate-fade-in-up md:grid-cols-[1fr_auto]">
+        <div>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--ft-signal)]">Dashboard</p>
+          <h1 className="dashboard-display mt-2 max-w-3xl text-[clamp(3.3rem,8vw,8rem)] font-black leading-[0.82] tracking-[-0.07em] text-[var(--ft-ink)]">
+            Today’s fridge report.
+          </h1>
         </div>
-        <p className="text-slate-500 ml-[38px] text-sm">Your food at a glance — stay fresh, waste less.</p>
+        <p className="max-w-64 self-end border-l border-[var(--ft-ink)] pl-4 text-sm leading-snug text-[rgba(21,19,15,0.66)]">
+          The useful version of opening the fridge three times and hoping it tells you what to cook.
+        </p>
       </div>
 
       {/* ── Stat cards ─────────────────────────────────────── */}
@@ -415,7 +431,7 @@ function DashboardPage() {
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-danger-800 mb-0.5">{expiredItems.length} expired item{expiredItems.length > 1 ? "s" : ""}</h3>
             <p className="text-sm text-danger-700">
-              <span className="font-medium">{expiredItems.map((i) => i.name).join(", ")}</span> — please remove or mark as wasted.
+              <span className="font-medium">{expiredItems.map((i) => i.name).join(", ")}</span>. Please remove or mark as wasted.
             </p>
           </div>
           <Link to="/items" className="flex-shrink-0 text-xs font-semibold text-danger-600 hover:text-danger-800 transition-colors whitespace-nowrap mt-1">
@@ -458,7 +474,7 @@ function DashboardPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Leaf className="w-4 h-4 text-fresh-500" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">In Season</h3>
+                <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">In Season</h3>
               </div>
               <Link to="/shopping" className="text-xs font-semibold text-frost-600 hover:text-frost-800 flex items-center gap-1 transition-colors">
                 See all <ArrowRight className="w-3 h-3" />
@@ -468,7 +484,7 @@ function DashboardPage() {
               {seasonal.slice(0, 6).map((item) => (
                 <span
                   key={item.name}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 glass rounded-full text-xs font-medium text-slate-700 border border-fresh-200/50 hover:bg-fresh-50/60 hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200 cursor-default"
+                  className="inline-flex cursor-default items-center gap-1.5 border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-3 py-1.5 text-xs font-medium text-[var(--ft-ink)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--ft-pickle)]"
                   title={item.tip}
                 >
                   <span>{item.emoji}</span> {item.name}
@@ -486,7 +502,7 @@ function DashboardPage() {
       <div className="mb-6 animate-fade-in-up stagger-5">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-4 h-4 text-frost-500" />
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Quick Actions</h2>
+          <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">Quick Actions</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <ActionCard to="/items"   emoji="&#x1F34E;" title="Manage Food"   desc="Add, edit, or remove items from your inventory"           gradient="bg-gradient-to-r from-fresh-400 to-fresh-500"   delay={5} />
@@ -500,17 +516,17 @@ function DashboardPage() {
         <GlassCard className="py-12 px-8 animate-scale-in" hover={false}>
           <div className="text-center mb-8">
             <div className="text-7xl mb-5 animate-float inline-block" role="img" aria-label="ice cube">&#x1F9CA;</div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Your fridge is empty!</h3>
-            <p className="text-slate-500 max-w-sm mx-auto leading-relaxed">
-              Start with what's in your fridge right now — even just 3 items helps!
+            <h3 className="dashboard-display mb-2 text-4xl font-black text-[var(--ft-ink)]">Your fridge is empty.</h3>
+            <p className="mx-auto max-w-sm leading-relaxed text-[rgba(21,19,15,0.64)]">
+              Start with what’s in your fridge right now. Even three items helps.
             </p>
           </div>
 
           {/* Starter packs */}
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-4 h-4 text-frost-500" />
-            <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Starter Packs</h4>
-            <span className="text-xs text-slate-400">— add common items in one tap</span>
+            <h4 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">Starter Packs</h4>
+            <span className="text-xs text-[rgba(21,19,15,0.52)]">Add common items in one tap</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
@@ -520,7 +536,7 @@ function DashboardPage() {
                 onClick={() => handleStarterPack(pack)}
                 disabled={addingPack !== null}
                 className={cn(
-                  "group relative glass rounded-2xl p-5 text-left transition-all duration-300 overflow-hidden",
+                  "group relative glass p-5 text-left transition-all duration-300 overflow-hidden",
                   "hover:-translate-y-1 hover:shadow-glass-hover active:scale-[0.98]",
                   addingPack === pack.label && "ring-2 ring-frost-400/60",
                   addingPack !== null && addingPack !== pack.label && "opacity-50",
@@ -540,7 +556,7 @@ function DashboardPage() {
                 </p>
 
                 {addingPack === pack.label && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center bg-[rgba(255,248,232,0.82)]">
                     <div className="w-5 h-5 border-2 border-frost-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
@@ -549,10 +565,10 @@ function DashboardPage() {
           </div>
 
           <div className="flex gap-3 justify-center flex-wrap">
-            <Link to="/items" className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.97]">
+            <Link to="/items" className="inline-flex items-center gap-2 border border-[var(--ft-ink)] bg-[var(--ft-signal)] px-6 py-2.5 text-sm font-semibold text-[var(--ft-bone)] transition-all active:scale-[0.97]">
               <Apple className="w-4 h-4" /> Add Items
             </Link>
-            <Link to="/scan" className="inline-flex items-center gap-2 px-6 py-2.5 glass text-slate-700 rounded-xl text-sm font-semibold hover:bg-white/80 transition-all active:scale-[0.97]">
+            <Link to="/scan" className="inline-flex items-center gap-2 border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-6 py-2.5 text-sm font-semibold text-[var(--ft-ink)] transition-all hover:bg-[var(--ft-pickle)] active:scale-[0.97]">
               <ScanLine className="w-4 h-4" /> Scan Barcode
             </Link>
           </div>

@@ -71,7 +71,7 @@ export const householdMembers = sqliteTable("household_members", {
   userIdx:      index("idx_hm_user").on(table.userId),
 }));
 
-const FOOD_CATEGORIES = ["dairy","meat","poultry","seafood","produce","grains","beverages","condiments","leftovers","frozen_meals","snacks","other"] as const;
+export const FOOD_CATEGORIES = ["dairy","meat","poultry","seafood","produce","grains","beverages","condiments","leftovers","frozen_meals","snacks","other"] as const;
 
 export const foodItems = sqliteTable("food_items", {
   id:          text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -144,6 +144,26 @@ export const recipePreferences = sqliteTable("recipe_preferences", {
   updatedAt:            text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const savedRecipes = sqliteTable("saved_recipes", {
+  id:                 text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId:             text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  householdId:        text("household_id").references(() => households.id, { onDelete: "cascade" }),
+  source:             text("source", { enum: ["custom", "ai_favourite"] }).notNull(),
+  title:              text("title").notNull(),
+  ingredients:        text("ingredients").notNull(),   // JSON string[]
+  instructions:       text("instructions").notNull(),  // JSON string[]
+  tags:               text("tags").notNull().default("[]"),
+  prepTime:           integer("prep_time").notNull().default(20),
+  servings:           integer("servings").notNull().default(2),
+  estimatedMacros:    text("estimated_macros"),        // JSON RecipeMacros
+  originalRecipeId:   text("original_recipe_id"),
+  createdAt:          text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt:          text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  userIdx: index("idx_saved_recipes_user").on(table.userId),
+  householdIdx: index("idx_saved_recipes_household").on(table.householdId),
+}));
+
 // ── Shopping list ──────────────────────────────────────────────────────────
 
 export const shoppingListItems = sqliteTable("shopping_list_items", {
@@ -183,6 +203,7 @@ export const achievements = sqliteTable("achievements", {
 // Type exports
 export type User                  = typeof users.$inferSelect;
 export type RecipePrefRow         = typeof recipePreferences.$inferSelect;
+export type SavedRecipeRow        = typeof savedRecipes.$inferSelect;
 export type Household             = typeof households.$inferSelect;
 export type HouseholdMember       = typeof householdMembers.$inferSelect;
 export type FoodItemRow           = typeof foodItems.$inferSelect;

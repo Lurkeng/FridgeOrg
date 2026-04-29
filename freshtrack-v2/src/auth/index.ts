@@ -4,11 +4,17 @@ import { getDb } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
 
 /**
- * IMPORTANT: Call getAuth() per-request, never at module load time.
- * D1 bindings are only available inside Cloudflare Workers request handlers.
+ * Create a better-auth instance.
+ *
+ * All configuration is read from process.env — no Cloudflare bindings needed.
+ * Safe to call per-request (drizzle-orm/libsql manages the underlying HTTP connection).
  */
-export function getAuth(env: Env) {
-  const db = getDb(env.DB);
+export function getAuth() {
+  const db = getDb();
+
+  const vercelUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : undefined;
 
   return betterAuth({
     database: drizzleAdapter(db, {
@@ -20,8 +26,8 @@ export function getAuth(env: Env) {
         verification: verifications,
       },
     }),
-    secret:   env.BETTER_AUTH_SECRET,
-    baseURL:  env.BETTER_AUTH_URL || "http://localhost:5173",
+    secret:  process.env.BETTER_AUTH_SECRET ?? "",
+    baseURL: process.env.BETTER_AUTH_URL ?? vercelUrl ?? "http://localhost:5173",
 
     emailAndPassword: { enabled: true },
 

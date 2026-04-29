@@ -1,27 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { getDb, schema } from "@/db";
+import { getDb, schema, FOOD_CATEGORIES } from "@/db";
 import { eq, and, asc } from "drizzle-orm";
-import { authMiddleware, householdMiddleware } from "@/middleware/auth";
+import { authMiddleware } from "@/middleware/auth";
 import { estimateItemCost } from "@/lib/utils";
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-async function getUserHouseholdId(db: ReturnType<typeof getDb>, userId: string) {
-  const member = await db
-    .select({ householdId: schema.householdMembers.householdId })
-    .from(schema.householdMembers)
-    .where(eq(schema.householdMembers.userId, userId))
-    .limit(1);
-  return member[0]?.householdId ?? null;
-}
+import { getUserHouseholdId } from "@/server/household-context";
 
 // ── GET all food items ─────────────────────────────────────────────────────
 
 export const getFoodItems = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) return [];
 
@@ -47,7 +37,7 @@ const nutritionSchema = z.object({
 
 const addItemSchema = z.object({
   name:       z.string().min(1).max(200),
-  category:   z.enum(["dairy","meat","poultry","seafood","produce","grains","beverages","condiments","leftovers","frozen_meals","snacks","other"]),
+  category:   z.enum(FOOD_CATEGORIES),
   location:   z.enum(["fridge","freezer","pantry"]),
   quantity:   z.number().positive(),
   unit:       z.string().max(50),
@@ -63,7 +53,7 @@ export const addFoodItem = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(addItemSchema)
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household — join or create one first");
 
@@ -121,7 +111,7 @@ export const updateFoodItem = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(updateItemSchema)
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
     const [item] = await db
@@ -139,7 +129,7 @@ export const deleteFoodItem = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
     await db.delete(schema.foodItems).where(and(eq(schema.foodItems.id, data.id), eq(schema.foodItems.householdId, householdId)));
@@ -152,7 +142,7 @@ export const markOpened = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
     const [item] = await db
@@ -173,7 +163,7 @@ export const markWasted = createServerFn({ method: "POST" })
     reason: z.enum(["expired","spoiled","leftover","other"]),
   }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
 
@@ -204,7 +194,7 @@ export const markConsumed = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
     await db.delete(schema.foodItems).where(and(eq(schema.foodItems.id, data.id), eq(schema.foodItems.householdId, householdId)));

@@ -22,10 +22,10 @@ export function useToast() {
 }
 
 const typeConfig: Record<ToastType, { icon: React.ReactNode; classes: string }> = {
-  success: { icon: <CheckCircle className="w-4 h-4 text-fresh-600" />,   classes: 'border-l-4 border-fresh-400 bg-fresh-50/90' },
-  error:   { icon: <AlertCircle className="w-4 h-4 text-danger-600" />,  classes: 'border-l-4 border-danger-400 bg-danger-50/90' },
-  warning: { icon: <AlertTriangle className="w-4 h-4 text-warning-600" />, classes: 'border-l-4 border-warning-400 bg-warning-50/90' },
-  info:    { icon: <Info className="w-4 h-4 text-frost-600" />,           classes: 'border-l-4 border-frost-400 bg-frost-50/90' },
+  success: { icon: <CheckCircle className="w-4 h-4 text-[var(--ft-ink)]" />,   classes: 'border-[var(--ft-ink)] bg-[var(--ft-pickle)]' },
+  error:   { icon: <AlertCircle className="w-4 h-4 text-[var(--ft-signal)]" />,  classes: 'border-[var(--ft-signal)] bg-[var(--ft-paper)]' },
+  warning: { icon: <AlertTriangle className="w-4 h-4 text-[var(--ft-signal)]" />, classes: 'border-[var(--ft-signal)] bg-[var(--ft-paper)]' },
+  info:    { icon: <Info className="w-4 h-4 text-[var(--ft-ink)]" />,           classes: 'border-[var(--ft-ink)] bg-[var(--ft-paper)]' },
 };
 
 function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string) => void }) {
@@ -45,15 +45,22 @@ function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string)
 
   return (
     <div
+      role={item.type === "error" ? "alert" : "status"}
+      aria-live={item.type === "error" ? "assertive" : "polite"}
+      aria-atomic="true"
       className={cn(
-        'flex items-start gap-3 px-4 py-3 rounded-2xl shadow-glass backdrop-blur-glass max-w-xs w-full transition-all duration-300',
+        'flex items-start gap-3 border px-4 py-3 max-w-xs w-full transition-all duration-300',
         config.classes,
         visible && !leaving ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8',
       )}
     >
       <span className="flex-shrink-0 mt-0.5">{config.icon}</span>
-      <p className="text-sm text-slate-800 font-medium flex-1">{item.message}</p>
-      <button onClick={() => { setLeaving(true); setTimeout(() => onRemove(item.id), 350); }} className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors">
+      <p className="text-sm text-[var(--ft-ink)] font-medium flex-1">{item.message}</p>
+      <button
+        onClick={() => { setLeaving(true); setTimeout(() => onRemove(item.id), 350); }}
+        className="flex-shrink-0 text-[rgba(21,19,15,0.5)] hover:text-[var(--ft-ink)] transition-colors"
+        aria-label="Dismiss notification"
+      >
         <X className="w-3.5 h-3.5" />
       </button>
     </div>
@@ -75,7 +82,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite" aria-relevant="additions">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto">
             <ToastCard item={t} onRemove={remove} />

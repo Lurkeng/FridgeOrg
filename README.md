@@ -16,19 +16,21 @@ This repository also contains a **legacy Next.js** prototype at the repository r
 - **Recipes** — match recipes to what you have; optional AI recipes (Anthropic) when configured  
 - **Waste tracker** — log waste and view trends  
 - **Households** — invite codes and shared data  
-- **Auth** — email/password via [better-auth](https://www.better-auth.com) + sessions  
+- **Auth** — email/password via [better-auth](https://www.better-auth.com) + sessions
 
 ---
 
 ## Tech stack (active app)
 
-| Layer | Choice |
-|--------|--------|
-| Framework | [TanStack Start](https://tanstack.com/start) + [React](https://react.dev/) |
-| Hosting | [Cloudflare Workers](https://workers.cloudflare.com/) |
-| Database | [Cloudflare D1](https://developers.cloudflare.com/d1/) (SQLite) + [Drizzle ORM](https://orm.drizzle.team/) |
-| Auth | [better-auth](https://www.better-auth.com/) |
-| Styling | [Tailwind CSS](https://tailwindcss.com/) |
+
+| Layer     | Choice                                                                                                     |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| Framework | [TanStack Start](https://tanstack.com/start) + [React](https://react.dev/)                                 |
+| Hosting   | [Cloudflare Workers](https://workers.cloudflare.com/)                                                      |
+| Database  | [Cloudflare D1](https://developers.cloudflare.com/d1/) (SQLite) + [Drizzle ORM](https://orm.drizzle.team/) |
+| Auth      | [better-auth](https://www.better-auth.com/)                                                                |
+| Styling   | [Tailwind CSS](https://tailwindcss.com/)                                                                   |
+
 
 ---
 
@@ -58,43 +60,45 @@ npm run db:migrate:local           # after configuring D1 in wrangler.jsonc
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) (see [`freshtrack-v2/SETUP.md`](freshtrack-v2/SETUP.md) for D1, Wrangler secrets, and production URLs).
+Open [http://localhost:5173](http://localhost:5173) (see `[freshtrack-v2/SETUP.md](freshtrack-v2/SETUP.md)` for D1, Wrangler secrets, and production URLs).
 
 ---
 
 ## Scripts (`freshtrack-v2`)
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Vite dev server |
-| `npm run build` | Production client + worker bundle |
-| `npm run deploy` | Deploy to Cloudflare (`wrangler deploy`) |
-| `npm run test:e2e` | Playwright smoke (build + preview + `/auth` check) |
-| `npm run db:generate` | Generate Drizzle migrations |
-| `npm run db:migrate:local` / `db:migrate:prod` | Apply SQL to D1 |
+
+| Command                                        | Description                                        |
+| ---------------------------------------------- | -------------------------------------------------- |
+| `npm run dev`                                  | Vite dev server                                    |
+| `npm run build`                                | Production client + worker bundle                  |
+| `npm run deploy`                               | Deploy to Cloudflare (`wrangler deploy`)           |
+| `npm run test:e2e`                             | Playwright smoke (build + preview + `/auth` check) |
+| `npm run db:generate`                          | Generate Drizzle migrations                        |
+| `npm run db:migrate:local` / `db:migrate:prod` | Apply SQL to D1                                    |
+
 
 ---
 
 ## Configuration
 
 - **Local:** `.env.local` and `.dev.vars` (Worker secrets) — **never commit real secrets.**  
-- **Production:** `wrangler secret put` for `BETTER_AUTH_SECRET`, optional `ANTHROPIC_API_KEY`, `KASSALAPP_API_KEY`, etc.  
+- **Production:** `wrangler secret put` for `BETTER_AUTH_SECRET`, optional `ANTHROPIC_API_KEY`, `KASSALAPP_API_KEY`, etc.
 
-Details: [`freshtrack-v2/SETUP.md`](freshtrack-v2/SETUP.md).
+Details: `[freshtrack-v2/SETUP.md](freshtrack-v2/SETUP.md)`.
 
 ---
 
 ## Pre-launch and QA
 
-Structured checklists and competitive notes live under [`freshtrack-v2/docs/pre-launch/`](freshtrack-v2/docs/pre-launch/).
+Structured checklists and competitive notes live under `[freshtrack-v2/docs/pre-launch/](freshtrack-v2/docs/pre-launch/)`.
 
 ---
 
 ## Contributing
 
-1. Work in **`freshtrack-v2/`** unless you are intentionally touching the legacy app.  
-2. Run `npm run build` in `freshtrack-v2` before opening a PR.  
-3. Run `npm run test:e2e` when you change auth or the auth page shell.  
+1. Work in `**freshtrack-v2/`** unless you are intentionally touching the legacy app.
+2. Run `npm run build` in `freshtrack-v2` before opening a PR.
+3. Run `npm run test:e2e` when you change auth or the auth page shell.
 
 ---
 
@@ -106,4 +110,4 @@ No license file is included in this repository yet. Add a `LICENSE` file if you 
 
 ## Remote
 
-This project is hosted at **https://github.com/Lurkeng/FridgeOrg**.
+This project is hosted at **[https://github.com/Lurkeng/FridgeOrg](https://github.com/Lurkeng/FridgeOrg)**.

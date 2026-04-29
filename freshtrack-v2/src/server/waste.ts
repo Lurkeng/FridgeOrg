@@ -4,22 +4,14 @@ import { getDb, schema } from "@/db";
 import { eq, desc, and, gte } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
 import { FoodCategory } from "@/types";
-
-async function getUserHouseholdId(db: ReturnType<typeof getDb>, userId: string) {
-  const member = await db
-    .select({ householdId: schema.householdMembers.householdId })
-    .from(schema.householdMembers)
-    .where(eq(schema.householdMembers.userId, userId))
-    .limit(1);
-  return member[0]?.householdId ?? null;
-}
+import { getUserHouseholdId } from "@/server/household-context";
 
 // ── GET waste logs ─────────────────────────────────────────────────────────
 
 export const getWasteLogs = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) return [];
 
@@ -36,7 +28,7 @@ export const getWasteLogs = createServerFn({ method: "GET" })
 export const getWasteStats = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) {
       return { totalWasted: 0, totalCost: 0, byCategory: {}, byReason: {}, weeklyTrend: [], topWastedItems: [] };
@@ -116,7 +108,7 @@ export const addWasteLog = createServerFn({ method: "POST" })
     wastedDate:    z.string(),
   }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
 

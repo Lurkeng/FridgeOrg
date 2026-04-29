@@ -97,7 +97,7 @@ function ItemsPage() {
       </div>
 
       {/* Location tabs */}
-      <div className="flex gap-1 glass rounded-2xl p-1.5 mb-6 animate-fade-in-up stagger-2">
+      <div className="flex gap-1 glass rounded-2xl p-1.5 mb-6 animate-fade-in-up stagger-2" role="tablist" aria-label="Storage location">
         {tabs.map((tab) => {
           const count = tab.value === "all" ? items.length : (itemsByLocation[tab.value as StorageLocation]?.length || 0);
           const Icon = tab.icon;
@@ -107,6 +107,8 @@ function ItemsPage() {
               key={tab.value}
               type="button"
               onClick={() => setActiveTab(tab.value)}
+              role="tab"
+              aria-selected={active}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative",
                 active

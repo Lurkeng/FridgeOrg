@@ -1,6 +1,8 @@
 # FreshTrack v2 — Setup Guide
 
-**Stack:** TanStack Start + Cloudflare Workers + D1 + better-auth + Drizzle ORM
+**Stack:** TanStack Start + Vercel + Turso (libSQL) + better-auth + Drizzle ORM
+
+> Deployment note: production currently uses `vercel.json` + `api/server.js` and Turso env vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`). Any older Cloudflare/D1 references in this document are legacy and should not be used for new deployments.
 
 ---
 

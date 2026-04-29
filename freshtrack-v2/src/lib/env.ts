@@ -1,63 +1,27 @@
-import { env as cfEnv } from "cloudflare:workers";
+/**
+ * Resolve application environment variables from process.env.
+ *
+ * Previously this resolved Cloudflare Workers bindings (D1, secrets).
+ * Now all configuration comes from standard Node.js process.env, which
+ * Vercel populates from the project's Environment Variables settings.
+ */
+export function getWorkerEnv(_routeContext?: unknown): Env {
+  // On Vercel, VERCEL_URL is set automatically for each deployment.
+  // Use it as a fallback when BETTER_AUTH_URL isn't explicitly set.
+  const vercelUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : undefined;
 
-function mergeProcessIntoEnv(raw: Env): Env {
-  // Optional Node `process.env` (e.g. some tooling); Workers get secrets from `raw` via
-  // `.dev.vars` (local) or `wrangler secret put` (production).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p =
-    typeof (globalThis as any).process !== "undefined"
-      ? ((globalThis as any).process.env as Record<string, string | undefined>)
-      : undefined;
   return {
-    ...raw,
-    ANTHROPIC_API_KEY: raw.ANTHROPIC_API_KEY || p?.ANTHROPIC_API_KEY || "",
-    BETTER_AUTH_SECRET: raw.BETTER_AUTH_SECRET || p?.BETTER_AUTH_SECRET || "",
-    BETTER_AUTH_URL: raw.BETTER_AUTH_URL || p?.BETTER_AUTH_URL || "",
-    KASSALAPP_API_KEY: raw.KASSALAPP_API_KEY || p?.KASSALAPP_API_KEY || "",
+    ANTHROPIC_API_KEY:  process.env.ANTHROPIC_API_KEY  ?? "",
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "",
+    BETTER_AUTH_URL:    process.env.BETTER_AUTH_URL    ?? vercelUrl ?? "http://localhost:5173",
+    APP_ENV:            process.env.APP_ENV            ?? process.env.NODE_ENV ?? "development",
+    KASSALAPP_API_KEY:  process.env.KASSALAPP_API_KEY  ?? "",
   };
 }
 
-function envFromLegacyGlobals(): Env | undefined {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mod = (globalThis as any).__cf_env;
-    if (mod) return mod as Env;
-  } catch {
-    /* ignore */
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (globalThis as any).__env as Env | undefined;
-}
-
-/**
- * Resolve Cloudflare bindings for server code (API routes, server functions, middleware).
- *
- * Order: TanStack `context.env` from a custom Worker entry (if present), then
- * `cloudflare:workers` `env` (correct for Vite + Miniflare and production Workers
- * even when the default TanStack server entry does not pass `context`), then legacy
- * globals used by older tooling.
- */
-export function getWorkerEnv(routeContext?: unknown): Env {
-  const ctx = routeContext as { env?: Env } | undefined;
-  if (ctx?.env?.DB) {
-    return mergeProcessIntoEnv(ctx.env);
-  }
-
-  const fromModule = cfEnv as unknown as Env;
-  if (fromModule?.DB) {
-    return mergeProcessIntoEnv(fromModule);
-  }
-
-  const legacy = envFromLegacyGlobals();
-  if (legacy?.DB) {
-    return mergeProcessIntoEnv(legacy);
-  }
-
-  throw new Error(
-    "Cloudflare bindings unavailable (no D1). Use the Cloudflare Vite plugin, set wrangler `main`, and add `.dev.vars` (local) or deploy with secrets.",
-  );
-}
-
+// Alias kept for any existing import sites
 export function getCloudflareEnv(): Env {
   return getWorkerEnv();
 }

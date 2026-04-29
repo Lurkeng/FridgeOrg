@@ -4,17 +4,7 @@ import { getDb, schema } from "@/db";
 import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
 import { KassalappClient, processProducts, extractPriceDrops, type KassalProduct, type PriceDropProduct } from "@/lib/kassalapp";
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-async function getUserHouseholdId(db: ReturnType<typeof getDb>, userId: string) {
-  const member = await db
-    .select({ householdId: schema.householdMembers.householdId })
-    .from(schema.householdMembers)
-    .where(eq(schema.householdMembers.userId, userId))
-    .limit(1);
-  return member[0]?.householdId ?? null;
-}
+import { getUserHouseholdId } from "@/server/household-context";
 
 export interface StoreTotalEntry {
   store: string;
@@ -59,7 +49,7 @@ export const searchProducts = createServerFn({ method: "POST" })
 export const getDealsForShoppingList = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
     const apiKey = context.env.KASSALAPP_API_KEY;
     if (!apiKey) return { deals: [], storeTotals: [], missingKey: true };
 
@@ -156,9 +146,11 @@ export const selectDealForItem = createServerFn({ method: "POST" })
     price:          z.number(),
   }))
   .handler(async ({ context, data }) => {
-    const db = getDb(context.env.DB);
+    const db = getDb();
+    const householdId = await getUserHouseholdId(db, context.userId);
+    if (!householdId) throw new Error("No household");
 
-    await db
+    const [updated] = await db
       .update(schema.shoppingListItems)
       .set({
         kassalappProductId: data.productId,
@@ -166,7 +158,17 @@ export const selectDealForItem = createServerFn({ method: "POST" })
         cheapestPrice:      data.price,
         updatedAt:          new Date().toISOString(),
       })
-      .where(eq(schema.shoppingListItems.id, data.shoppingItemId));
+      .where(
+        and(
+          eq(schema.shoppingListItems.id, data.shoppingItemId),
+          eq(schema.shoppingListItems.householdId, householdId),
+        ),
+      )
+      .returning({ id: schema.shoppingListItems.id });
+
+    if (!updated) {
+      throw new Error("Item not found");
+    }
 
     return { success: true };
   });

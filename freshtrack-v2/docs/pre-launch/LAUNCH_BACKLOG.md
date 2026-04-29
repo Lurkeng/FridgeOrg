@@ -10,10 +10,10 @@
 
 | ID | Item | Source |
 |----|------|--------|
-| **SEC-1** | **IDOR:** Scope all **mutations by resource id** to the user’s `householdId` (food items: update/delete/mark opened/consumed/wasted; shopping list: toggle/update/delete; `fetchItemPrices`; `selectDealForItem`). Use `and(eq(id, …), eq(householdId, …))` after resolving the user’s household. | Code review |
-| **SEC-2** | **Client auth shell:** Ensure unauthenticated users cannot see the authenticated layout — add explicit redirect in [`_app.tsx`](../src/routes/_app.tsx) when session is absent (not only `isPending`), or implement session check in `beforeLoad` on the server. | Code review |
+| **SEC-1** | **IDOR household scoping** completed in code review pass (food, shopping, deals mutations now include household scope). Keep in regression checklist for future changes. | Code review |
+| **SEC-2** | **Client auth shell guard** completed in [`_app.tsx`](../src/routes/_app.tsx) and covered by smoke test redirect scenario. | Code review |
 | **QA-1** | Run **full P0 manual matrix** on **production** URL after deploy (auth, two users, inventory, scan, shopping, deals). | Traceability matrix |
-| **OPS-1** | Confirm **Wrangler secrets** in prod: `BETTER_AUTH_SECRET`, `KASSALAPP_API_KEY`, optional `ANTHROPIC_API_KEY`; `BETTER_AUTH_URL` / `VITE_APP_URL` match live origin. | SETUP.md |
+| **OPS-1** | Confirm **Vercel/Turso env vars** in prod: `BETTER_AUTH_SECRET`, `KASSALAPP_API_KEY`, optional `ANTHROPIC_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`; `BETTER_AUTH_URL` / `VITE_APP_URL` match live origin. | SETUP.md |
 
 ---
 
@@ -42,7 +42,7 @@
 
 ## Sign-off checklist
 
-- [ ] SEC-1 + SEC-2 addressed in code  
+- [x] SEC-1 + SEC-2 addressed in code  
 - [ ] QA-1 completed on production  
 - [ ] OPS-1 verified  
 - [ ] Legal/marketing P1 items either shipped or consciously deferred  

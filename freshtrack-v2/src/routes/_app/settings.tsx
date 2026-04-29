@@ -4,6 +4,7 @@ import { useHousehold, useHouseholdMembers, useCreateHousehold, useJoinHousehold
 import { PageHeader } from "@/components/layout/PageHeader";
 import GlassCard from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/Toast";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import { Settings, Home, Users, Copy, RefreshCw, Plus, LogIn, Crown, User, Shield, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportAllData } from "@/server/export";
@@ -260,23 +261,7 @@ function SettingsPage() {
   const { data: household, isLoading } = useHousehold();
 
   if (isLoading) {
-    return (
-      <div className="p-4 md:p-8 max-w-5xl mx-auto">
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/40 animate-pulse" />
-            <div>
-              <div className="h-7 w-24 rounded-2xl bg-white/40 animate-pulse mb-1" />
-              <div className="h-4 w-48 rounded-2xl bg-white/40 animate-pulse" />
-            </div>
-          </div>
-        </div>
-        <div className="h-5 w-28 rounded-xl bg-white/40 animate-pulse mb-4" />
-        <div className="h-64 max-w-md rounded-2xl bg-white/40 animate-pulse mb-8" />
-        <div className="h-5 w-32 rounded-xl bg-white/40 animate-pulse mb-4" />
-        <div className="h-24 max-w-lg rounded-2xl bg-white/40 animate-pulse" />
-      </div>
-    );
+    return <PageSkeleton cards={3} />;
   }
 
   return (

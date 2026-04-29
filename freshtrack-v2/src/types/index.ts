@@ -116,6 +116,16 @@ export interface AIRecipe extends Recipe {
   estimatedMacros?: RecipeMacros;
 }
 
+export type SavedRecipeSource = "custom" | "ai_favourite";
+
+export interface SavedRecipe extends Recipe {
+  source: SavedRecipeSource;
+  estimatedMacros?: RecipeMacros;
+  originalRecipeId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Recipe Preferences ──────────────────────────────────────────────────────
 
 export type MealGoal =
