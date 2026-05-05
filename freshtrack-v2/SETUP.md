@@ -1,184 +1,91 @@
 # FreshTrack v2 — Setup Guide
 
-**Stack:** TanStack Start + Vercel + Turso (libSQL) + better-auth + Drizzle ORM
-
-> Deployment note: production currently uses `vercel.json` + `api/server.js` and Turso env vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`). Any older Cloudflare/D1 references in this document are legacy and should not be used for new deployments.
-
----
-
 ## Prerequisites
 
 - Node.js 20+
-- Wrangler CLI: `npm install -g wrangler`
-- A Cloudflare account (free tier works fine)
-- An Anthropic API key (for AI recipes — optional)
+- npm (bundled with Node)
+- Git
+- A [Turso](https://turso.tech) account (free tier is fine) — or use a local SQLite file for development
 
----
-
-## 1. Install Dependencies
+## 1. Clone the repo
 
 ```bash
+git clone <repo-url>
 cd freshtrack-v2
+```
+
+## 2. Install dependencies
+
+```bash
 npm install
 ```
 
----
+## 3. Configure environment variables
 
-## 2. Create Cloudflare D1 Database
-
-```bash
-wrangler d1 create freshtrack-db
-```
-
-Copy the `database_id` from the output and paste it into `wrangler.jsonc`:
-```jsonc
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "freshtrack-db",
-    "database_id": "PASTE_YOUR_ID_HERE"
-  }
-]
-```
-
----
-
-## 3. Generate & Apply Database Migrations
+Copy the example file:
 
 ```bash
-# Generate the SQL migration from the Drizzle schema
-npm run db:generate
-
-# Apply to local D1 (for development)
-npm run db:migrate:local
-
-# Apply to production D1 (when ready to deploy)
-npm run db:migrate:prod
+cp .env.example .env.local
 ```
 
----
+Then fill in each value:
 
-## 4. Configure Environment Variables
+| Variable | Notes |
+|---|---|
+| `TURSO_DATABASE_URL` | `file:local.db` for local dev (no token needed) |
+| `TURSO_AUTH_TOKEN` | Leave blank when using a local file |
+| `BETTER_AUTH_SECRET` | Generate with `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | `http://localhost:5173` for local dev |
+| `VITE_APP_URL` | Same as `BETTER_AUTH_URL` |
+| `KASSALAPP_API_KEY` | Optional — Norwegian grocery pricing |
+| `ANTHROPIC_API_KEY` | Optional — AI recipe suggestions |
+| `RESEND_API_KEY` | Optional — transactional email (password reset, invites) |
 
-Copy `.env.local.example` → `.env.local` and fill in:
+## 4. Set up Turso (skip if using local SQLite)
+
+If you want a remote Turso database:
 
 ```bash
-cp .env.local.example .env.local
+# Install Turso CLI if needed: https://docs.turso.tech/cli/installation
+turso db create freshtrack
+turso db show freshtrack --url      # copy this → TURSO_DATABASE_URL
+turso db tokens create freshtrack   # copy this → TURSO_AUTH_TOKEN
 ```
 
-```env
-BETTER_AUTH_SECRET=your-random-secret-min-32-chars
-BETTER_AUTH_URL=http://localhost:5173
-ANTHROPIC_API_KEY=sk-ant-...   # optional, enables AI recipes
-VITE_APP_URL=http://localhost:5173
-```
+Set the URL and token in `.env.local`.
 
-For **production**, set secrets via Wrangler (never commit them):
-```bash
-wrangler secret put BETTER_AUTH_SECRET
-wrangler secret put ANTHROPIC_API_KEY
-```
-
----
-
-## 5. Generate Cloudflare Types
+## 5. Push the database schema
 
 ```bash
-npm run cf-typegen
+npm run db:push
 ```
 
-This creates/updates `worker-configuration.d.ts` with typed D1 bindings.
+This applies the Drizzle schema to your database. For production migrations use `npm run db:generate` + `npm run db:migrate` instead.
 
----
-
-## 6. Run Development Server
+## 6. Start the dev server
 
 ```bash
 npm run dev
 ```
 
-App runs at http://localhost:5173
+Opens at [http://localhost:5173](http://localhost:5173).
+
+## 7. Sign up
+
+Open the app in your browser and sign up. The first account you create becomes the household owner.
+
+## 8. Verify everything works
+
+1. Open the Dashboard — it should load without errors.
+2. Go to **Items** and add a food item with an expiry date.
+3. Go to **Shopping** — the shopping list should be accessible.
+
+If all three work, the setup is complete.
 
 ---
 
-## 7. Deploy to Cloudflare
+## Next steps
 
-```bash
-# Build
-npm run build
-
-# Deploy
-npm run deploy
-```
-
-Then update `wrangler.jsonc` and `.env.local`:
-```env
-BETTER_AUTH_URL=https://freshtrack.YOUR_SUBDOMAIN.workers.dev
-VITE_APP_URL=https://freshtrack.YOUR_SUBDOMAIN.workers.dev
-```
-
----
-
-## Project Structure
-
-```
-freshtrack-v2/
-├── src/
-│   ├── auth/              # better-auth server + client config
-│   ├── db/                # Drizzle schema + DB helper
-│   ├── middleware/        # Auth middleware for server functions
-│   ├── server/            # Server functions (createServerFn)
-│   │   ├── food-items.ts  # CRUD + waste operations
-│   │   ├── waste.ts       # Waste logs + stats
-│   │   ├── households.ts  # Household management
-│   │   └── recipes.ts     # AI recipe suggestions
-│   ├── hooks/             # TanStack Query hooks (data layer)
-│   ├── routes/            # File-based routing
-│   │   ├── __root.tsx     # HTML shell + providers
-│   │   ├── _app.tsx       # Authenticated layout (sidebar)
-│   │   ├── _app/          # App pages
-│   │   │   ├── index.tsx  # Dashboard
-│   │   │   ├── items.tsx  # Food inventory
-│   │   │   ├── scan.tsx   # Barcode scanner
-│   │   │   ├── recipes.tsx# Classic + AI recipes
-│   │   │   └── waste.tsx  # Waste tracker
-│   │   ├── auth.tsx       # Login / Sign-up page
-│   │   └── api/auth/$.ts  # better-auth catch-all API
-│   ├── components/        # UI components (glassmorphism design)
-│   ├── lib/               # Utilities + animations
-│   ├── types/             # TypeScript types
-│   ├── data/              # Recipe data + expiry defaults
-│   ├── client.tsx         # Browser entry point
-│   ├── ssr.tsx            # Worker SSR entry point
-│   └── router.tsx         # TanStack Router setup
-├── drizzle/               # Generated SQL migrations (after db:generate)
-├── drizzle.config.ts
-├── vite.config.ts
-├── wrangler.jsonc
-├── tailwind.config.ts
-└── worker-configuration.d.ts
-```
-
----
-
-## Key Architecture Notes
-
-### Auth (better-auth)
-- `getAuth(env)` must be called **per-request** — never at module level
-- Session cookies are automatically managed by better-auth
-- `authMiddleware` in server functions checks sessions server-side
-
-### Data Flow
-```
-Browser → TanStack Query hook → createServerFn → Drizzle → D1
-```
-
-### AI Recipes
-- Uses `claude-haiku-4-5-20251001` via Anthropic REST API
-- Prioritises ingredients expiring soonest in the prompt
-- Results cached in `sessionStorage` for 30 minutes per inventory hash
-- Cost: ~$0.001 per request (10 requests ≈ $0.01)
-
-### routeTree.gen.ts
-TanStack Router generates `src/routeTree.gen.ts` automatically on first `npm run dev`.
-Do not edit it manually — it is rebuilt whenever you add/rename route files.
+- Add `KASSALAPP_API_KEY` to enable price comparison on the Shopping page.
+- Add `ANTHROPIC_API_KEY` to enable AI recipe suggestions on the Recipes page.
+- Deploy to Vercel — see the [README](./README.md#deploy-to-vercel).

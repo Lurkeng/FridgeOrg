@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { staggerDelay } from '@/lib/animations';
 
 type GlassVariant = 'default' | 'frost' | 'fresh' | 'warning' | 'danger';
+type AccentTone = GlassVariant | 'gray';
 
 interface GlassCardProps {
   children: React.ReactNode;
@@ -10,26 +11,29 @@ interface GlassCardProps {
   hover?: boolean;
   animate?: boolean;
   staggerIndex?: number;
-  accentBar?: GlassVariant | 'gray';
+  accentBar?: AccentTone;
   onClick?: () => void;
   as?: 'div' | 'article' | 'section' | 'li';
 }
 
+// Editorial Nordic Larder cards — 1px ink borders on warm parchment, with
+// variant-tinted backgrounds. Hover lifts up and casts a brutalist offset
+// shadow. The top edge can carry a 2px accent strip in the brand palette.
 const variantClasses: Record<GlassVariant, string> = {
-  default: 'glass',
-  frost:   'glass-frost',
-  fresh:   'glass bg-fresh-50/65 border-fresh-200/60',
-  warning: 'glass bg-warning-50/65 border-warning-200/60',
-  danger:  'glass bg-danger-50/65 border-danger-200/60',
+  default: 'border-[var(--ft-ink)] bg-[var(--ft-paper)]',
+  frost:   'border-[var(--ft-ink)] bg-[var(--ft-paper)]',
+  fresh:   'border-[rgba(90,110,0,0.55)] bg-[rgba(183,193,103,0.10)]',
+  warning: 'border-[#b46c00] bg-[rgba(245,158,11,0.08)]',
+  danger:  'border-[var(--ft-signal)] bg-[rgba(184,50,30,0.06)]',
 };
 
-const accentClasses: Record<string, string> = {
-  default: '',
-  frost:   'accent-bar-frost',
-  fresh:   'accent-bar-fresh',
-  warning: 'accent-bar-warning',
-  danger:  'accent-bar-danger',
-  gray:    'accent-bar-gray',
+const accentColors: Record<AccentTone, string> = {
+  default: 'bg-[var(--ft-ink)]',
+  frost:   'bg-[var(--ft-pickle)]',
+  fresh:   'bg-[var(--ft-pickle)]',
+  warning: 'bg-[#d97706]',
+  danger:  'bg-[var(--ft-signal)]',
+  gray:    'bg-[rgba(21,19,15,0.45)]',
 };
 
 export default function GlassCard({
@@ -49,25 +53,34 @@ export default function GlassCard({
   return (
     <Tag
       className={cn(
-        'rounded-2xl overflow-hidden',
+        'relative overflow-hidden border',
         variantClasses[variant],
-        accentBar && accentClasses[accentBar],
-        hover && 'transition-all duration-300 hover:-translate-y-1 hover:shadow-glass-hover',
+        hover && 'transition-all duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[3px_3px_0_var(--ft-ink)]',
         animate && 'animate-fade-in-up',
-        isInteractive && 'cursor-pointer focus-visible:ring-2 focus-visible:ring-frost-400/60',
+        isInteractive &&
+          'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ft-bone)] focus-visible:ring-[var(--ft-ink)]',
         className,
       )}
       style={style}
       onClick={onClick}
-      role={isInteractive ? "button" : undefined}
+      role={isInteractive ? 'button' : undefined}
       tabIndex={isInteractive ? 0 : undefined}
       onKeyDown={isInteractive ? (event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onClick?.();
         }
       } : undefined}
     >
+      {accentBar && (
+        <span
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute left-0 right-0 top-0 h-[2px]',
+            accentColors[accentBar],
+          )}
+        />
+      )}
       {children}
     </Tag>
   );

@@ -1,9 +1,6 @@
-/**
- * useRestockSuggestions — fetches restock suggestions from waste logs
- * and expiring food items to display as quick-add chips on the shopping page.
- */
 import { useQuery } from "@tanstack/react-query";
 import { getRestockSuggestions } from "@/server/shopping-list";
+import { slKeys } from "@/hooks/shopping-list-keys";
 
 export interface RestockItem {
   name: string;
@@ -16,11 +13,12 @@ export interface ExpiringRestockItem {
   expiryDate: string;
 }
 
-export function useRestockSuggestions() {
+export function useRestockSuggestions(listId?: string | null) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["restockSuggestions"],
-    queryFn: () => getRestockSuggestions(),
+    queryKey: slKeys.suggestions(listId ?? null),
+    queryFn: () => getRestockSuggestions({ data: { listId: listId ?? undefined } }),
     staleTime: 60_000, // 1 minute
+    enabled: Boolean(listId),
   });
 
   return {

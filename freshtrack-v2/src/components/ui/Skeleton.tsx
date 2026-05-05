@@ -6,7 +6,7 @@ interface SkeletonProps {
   count?: number;
 }
 
-/** Pulsing placeholder for loading states */
+/** Pulsing placeholder for loading states — editorial parchment shimmer */
 export function Skeleton({ className, count = 1 }: SkeletonProps) {
   return (
     <>
@@ -14,10 +14,20 @@ export function Skeleton({ className, count = 1 }: SkeletonProps) {
         <div
           key={i}
           className={cn(
-            'rounded-2xl bg-white/40 animate-pulse',
+            'relative overflow-hidden border border-[rgba(21,19,15,0.16)] bg-[var(--ft-paper)]/60 animate-pulse',
             className,
           )}
-        />
+          aria-hidden
+        >
+          <div
+            className="absolute inset-0 animate-shimmer"
+            style={{
+              backgroundImage:
+                'linear-gradient(105deg, transparent 35%, rgba(255,248,232,0.65) 50%, transparent 65%)',
+              backgroundSize: '200% 100%',
+            }}
+          />
+        </div>
       ))}
     </>
   );
@@ -33,18 +43,18 @@ export function PageSkeleton({ cards = 3 }: PageSkeletonProps) {
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-center gap-3">
-          <Skeleton className="w-11 h-11 rounded-2xl" />
+          <Skeleton className="w-11 h-11 " />
           <div>
             <Skeleton className="h-7 w-32 mb-1" />
             <Skeleton className="h-4 w-40" />
           </div>
         </div>
-        <Skeleton className="h-10 w-28 rounded-xl" />
+        <Skeleton className="h-10 w-28 " />
       </div>
-      <Skeleton className="h-12 rounded-2xl mb-5" />
-      <Skeleton className="h-10 rounded-2xl mb-5 w-2/3" />
+      <Skeleton className="h-12  mb-5" />
+      <Skeleton className="h-10  mb-5 w-2/3" />
       <div className="grid gap-4">
-        <Skeleton className="h-36 rounded-2xl" count={cards} />
+        <Skeleton className="h-36 " count={cards} />
       </div>
     </div>
   );
@@ -81,18 +91,18 @@ export function ItemsSkeleton() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-center gap-3">
-          <Skeleton className="w-11 h-11 rounded-2xl" />
+          <Skeleton className="w-11 h-11 " />
           <div>
             <Skeleton className="h-7 w-28 mb-1" />
             <Skeleton className="h-4 w-20" />
           </div>
         </div>
-        <Skeleton className="h-10 w-28 rounded-xl" />
+        <Skeleton className="h-10 w-28 " />
       </div>
-      <Skeleton className="h-12 mb-4 rounded-2xl" />
-      <Skeleton className="h-12 mb-6 rounded-2xl" />
+      <Skeleton className="h-12 mb-4 " />
+      <Skeleton className="h-12 mb-6 " />
       <div className="grid gap-3">
-        <Skeleton className="h-24 rounded-2xl" count={4} />
+        <Skeleton className="h-24 " count={4} />
       </div>
     </div>
   );
@@ -104,7 +114,7 @@ export function WasteSkeleton() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-center gap-3">
-          <Skeleton className="w-11 h-11 rounded-2xl" />
+          <Skeleton className="w-11 h-11 " />
           <div>
             <Skeleton className="h-7 w-32 mb-1" />
             <Skeleton className="h-4 w-48" />

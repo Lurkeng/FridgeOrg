@@ -4,8 +4,12 @@ import { getDb, schema, FOOD_CATEGORIES } from "@/db";
 import { eq, and, asc } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
 import { getUserHouseholdId } from "@/server/household-context";
+import { resolveActiveList } from "@/server/shopping-list-active";
+
+const activeListInput = z.object({ listId: z.string().optional() }).optional();
 
 const addItemSchema = z.object({
+  listId:   z.string().optional(),
   name:     z.string().min(1).max(200),
   category: z.enum(FOOD_CATEGORIES),
   quantity: z.number().positive(),
@@ -14,20 +18,6 @@ const addItemSchema = z.object({
   barcode:  z.string().nullable().optional(),
 });
 
-export const getShoppingList = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    const db = getDb();
-    const householdId = await getUserHouseholdId(db, context.userId);
-    if (!householdId) return [];
-
-    return db
-      .select()
-      .from(schema.shoppingListItems)
-      .where(eq(schema.shoppingListItems.householdId, householdId))
-      .orderBy(asc(schema.shoppingListItems.checked), asc(schema.shoppingListItems.createdAt));
-  });
-
 export const addShoppingItem = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(addItemSchema)
@@ -35,6 +25,7 @@ export const addShoppingItem = createServerFn({ method: "POST" })
     const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household — join or create one first");
+    const activeList = await resolveActiveList(db, householdId, context.userId, data.listId);
 
     const [item] = await db
       .insert(schema.shoppingListItems)
@@ -46,6 +37,7 @@ export const addShoppingItem = createServerFn({ method: "POST" })
         notes:    data.notes ?? null,
         barcode:  data.barcode ?? null,
         checked:  false,
+        listId: activeList.id,
         householdId,
         addedBy:  context.userId,
       })
@@ -56,15 +48,22 @@ export const addShoppingItem = createServerFn({ method: "POST" })
 
 export const toggleShoppingItem = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(z.object({ id: z.string(), checked: z.boolean() }))
+  .inputValidator(z.object({ id: z.string(), checked: z.boolean(), listId: z.string().optional() }))
   .handler(async ({ context, data }) => {
     const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
+    const activeList = await resolveActiveList(db, householdId, context.userId, data.listId);
     const [item] = await db
       .update(schema.shoppingListItems)
       .set({ checked: data.checked, updatedAt: new Date().toISOString() })
-      .where(and(eq(schema.shoppingListItems.id, data.id), eq(schema.shoppingListItems.householdId, householdId)))
+      .where(
+        and(
+          eq(schema.shoppingListItems.id, data.id),
+          eq(schema.shoppingListItems.householdId, householdId),
+          eq(schema.shoppingListItems.listId, activeList.id),
+        ),
+      )
       .returning();
     if (!item) throw new Error("Item not found");
     return item;
@@ -73,6 +72,7 @@ export const toggleShoppingItem = createServerFn({ method: "POST" })
 export const updateShoppingItem = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator(z.object({
+    listId: z.string().optional(),
     id: z.string(),
     updates: z.object({
       name:     z.string().min(1).optional(),
@@ -86,13 +86,20 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
+    const activeList = await resolveActiveList(db, householdId, context.userId, data.listId);
     const [item] = await db
       .update(schema.shoppingListItems)
       .set({
         ...(data.updates as Partial<typeof schema.shoppingListItems.$inferInsert>),
         updatedAt: new Date().toISOString(),
       })
-      .where(and(eq(schema.shoppingListItems.id, data.id), eq(schema.shoppingListItems.householdId, householdId)))
+      .where(
+        and(
+          eq(schema.shoppingListItems.id, data.id),
+          eq(schema.shoppingListItems.householdId, householdId),
+          eq(schema.shoppingListItems.listId, activeList.id),
+        ),
+      )
       .returning();
     if (!item) throw new Error("Item not found");
     return item;
@@ -100,29 +107,39 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
 
 export const deleteShoppingItem = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(z.object({ id: z.string() }))
+  .inputValidator(z.object({ id: z.string(), listId: z.string().optional() }))
   .handler(async ({ context, data }) => {
     const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
-    await db.delete(schema.shoppingListItems).where(and(eq(schema.shoppingListItems.id, data.id), eq(schema.shoppingListItems.householdId, householdId)));
+    const activeList = await resolveActiveList(db, householdId, context.userId, data.listId);
+    await db.delete(schema.shoppingListItems).where(
+      and(
+        eq(schema.shoppingListItems.id, data.id),
+        eq(schema.shoppingListItems.householdId, householdId),
+        eq(schema.shoppingListItems.listId, activeList.id),
+      ),
+    );
     return { success: true };
   });
 
 export const clearCheckedItems = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .handler(async ({ context }) => {
+  .inputValidator(activeListInput)
+  .handler(async ({ context, data }) => {
     const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) return { deleted: 0 };
+    const activeList = await resolveActiveList(db, householdId, context.userId, data?.listId);
 
     await db
       .delete(schema.shoppingListItems)
       .where(
         and(
           eq(schema.shoppingListItems.householdId, householdId),
+          eq(schema.shoppingListItems.listId, activeList.id),
           eq(schema.shoppingListItems.checked, true),
         ),
       );
-    return { success: true };
+    return { success: true, listId: activeList.id };
   });

@@ -4,22 +4,18 @@ import { getDb, schema } from "@/db";
 import { eq, and, gte, like, sql } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
 import { getUserHouseholdId } from "@/server/household-context";
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
+import { computeStreak, computeMonthlyGrade } from "@/lib/achievements";
 
 function toDateStr(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-/** Count consecutive days with zero waste, going back from today. Cap at 365. */
 async function computeWasteStreak(
   db: ReturnType<typeof getDb>,
   householdId: string,
 ): Promise<number> {
-  // Fetch all distinct waste dates in the last 365 days
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 365);
-  const cutoffStr = toDateStr(cutoff);
 
   const wasteDates = await db
     .selectDistinct({ wastedDate: schema.wasteLogs.wastedDate })
@@ -27,25 +23,13 @@ async function computeWasteStreak(
     .where(
       and(
         eq(schema.wasteLogs.householdId, householdId),
-        gte(schema.wasteLogs.wastedDate, cutoffStr),
+        gte(schema.wasteLogs.wastedDate, toDateStr(cutoff)),
       ),
     );
 
-  const wasteDateSet = new Set(wasteDates.map((r) => r.wastedDate));
-
-  let streak = 0;
-  const d = new Date();
-  // Start from today and go back day by day
-  for (let i = 0; i < 365; i++) {
-    const dateStr = toDateStr(d);
-    if (wasteDateSet.has(dateStr)) break;
-    streak++;
-    d.setDate(d.getDate() - 1);
-  }
-  return streak;
+  return computeStreak(new Set(wasteDates.map((r) => r.wastedDate)), new Date());
 }
 
-/** Letter grade A-F based on current vs previous month waste count. */
 async function computeMonthlyWasteScore(
   db: ReturnType<typeof getDb>,
   householdId: string,
@@ -75,17 +59,10 @@ async function computeMonthlyWasteScore(
       ),
     );
 
-  const thisCount = Number(thisMonthLogs[0]?.cnt ?? 0);
-  const lastCount = Number(lastMonthLogs[0]?.cnt ?? 0);
-
-  if (lastCount === 0) return "B"; // No previous month data
-
-  const changePercent = ((thisCount - lastCount) / lastCount) * 100;
-  if (changePercent <= -50) return "A";
-  if (changePercent <= -20) return "B";
-  if (changePercent <= 0) return "C";
-  if (changePercent <= 20) return "D";
-  return "F";
+  return computeMonthlyGrade(
+    Number(thisMonthLogs[0]?.cnt ?? 0),
+    Number(lastMonthLogs[0]?.cnt ?? 0),
+  );
 }
 
 // ── GET achievements + dynamic stats ─────────────────────────────────────

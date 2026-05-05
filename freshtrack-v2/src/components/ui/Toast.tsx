@@ -1,6 +1,10 @@
 import { useEffect, useState, createContext, useContext, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
+import CheckCircle from 'lucide-react/dist/esm/icons/check-circle';
+import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
+import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
+import Info from 'lucide-react/dist/esm/icons/info';
+import X from 'lucide-react/dist/esm/icons/x';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -21,11 +25,23 @@ export function useToast() {
   return useContext(ToastContext);
 }
 
-const typeConfig: Record<ToastType, { icon: React.ReactNode; classes: string }> = {
-  success: { icon: <CheckCircle className="w-4 h-4 text-[var(--ft-ink)]" />,   classes: 'border-[var(--ft-ink)] bg-[var(--ft-pickle)]' },
-  error:   { icon: <AlertCircle className="w-4 h-4 text-[var(--ft-signal)]" />,  classes: 'border-[var(--ft-signal)] bg-[var(--ft-paper)]' },
-  warning: { icon: <AlertTriangle className="w-4 h-4 text-[var(--ft-signal)]" />, classes: 'border-[var(--ft-signal)] bg-[var(--ft-paper)]' },
-  info:    { icon: <Info className="w-4 h-4 text-[var(--ft-ink)]" />,           classes: 'border-[var(--ft-ink)] bg-[var(--ft-paper)]' },
+const typeConfig: Record<ToastType, { icon: React.ReactNode; classes: string; kicker: string; stripe: string }> = {
+  success: { icon: <CheckCircle className="w-4 h-4 text-[var(--ft-ink)]" strokeWidth={2} />,
+             classes: 'border-[var(--ft-ink)] bg-[var(--ft-pickle)]',
+             kicker: 'Logged',
+             stripe: 'bg-[var(--ft-ink)]' },
+  error:   { icon: <AlertCircle className="w-4 h-4 text-[var(--ft-signal)]" strokeWidth={2} />,
+             classes: 'border-[var(--ft-signal)] bg-[var(--ft-paper)]',
+             kicker: 'Error',
+             stripe: 'bg-[var(--ft-signal)]' },
+  warning: { icon: <AlertTriangle className="w-4 h-4 text-[#7c4a00]" strokeWidth={2} />,
+             classes: 'border-[#b46c00] bg-[var(--ft-paper)]',
+             kicker: 'Heads up',
+             stripe: 'bg-[#d97706]' },
+  info:    { icon: <Info className="w-4 h-4 text-[var(--ft-ink)]" strokeWidth={2} />,
+             classes: 'border-[var(--ft-ink)] bg-[var(--ft-paper)]',
+             kicker: 'Notice',
+             stripe: 'bg-[var(--ft-ink)]' },
 };
 
 function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string) => void }) {
@@ -49,16 +65,21 @@ function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string)
       aria-live={item.type === "error" ? "assertive" : "polite"}
       aria-atomic="true"
       className={cn(
-        'flex items-start gap-3 border px-4 py-3 max-w-xs w-full transition-all duration-300',
+        'relative flex items-start gap-3 border max-w-xs w-full pl-4 pr-3 py-3 transition-all duration-300',
+        'shadow-[3px_3px_0_var(--ft-ink)]',
         config.classes,
         visible && !leaving ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8',
       )}
     >
+      <span aria-hidden className={cn('absolute left-0 top-0 bottom-0 w-1', config.stripe)} />
       <span className="flex-shrink-0 mt-0.5">{config.icon}</span>
-      <p className="text-sm text-[var(--ft-ink)] font-medium flex-1">{item.message}</p>
+      <div className="flex-1 min-w-0">
+        <p className="font-mono text-[9px] font-bold uppercase tracking-[0.22em] text-[rgba(21,19,15,0.62)] mb-0.5">{config.kicker}</p>
+        <p className="text-[13px] leading-snug text-[var(--ft-ink)] font-medium">{item.message}</p>
+      </div>
       <button
         onClick={() => { setLeaving(true); setTimeout(() => onRemove(item.id), 350); }}
-        className="flex-shrink-0 text-[rgba(21,19,15,0.5)] hover:text-[var(--ft-ink)] transition-colors"
+        className="flex-shrink-0 mt-0.5 text-[rgba(21,19,15,0.5)] hover:text-[var(--ft-ink)] transition-colors"
         aria-label="Dismiss notification"
       >
         <X className="w-3.5 h-3.5" />

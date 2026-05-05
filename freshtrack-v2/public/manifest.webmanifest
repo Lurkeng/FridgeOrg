@@ -1,0 +1,25 @@
+{
+  "name": "FreshTrack",
+  "short_name": "FreshTrack",
+  "description": "A Norway-first household food tracker for expiry dates, shopping lists, and grocery habits.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fff8e8",
+  "theme_color": "#f2eadc",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/freshtrack-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/freshtrack-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

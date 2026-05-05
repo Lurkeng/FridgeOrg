@@ -27,8 +27,10 @@
 | **Shopping** |
 | SH1 | List / add / toggle / update / delete shopping items | `/shopping` | `getShoppingList`, `addShoppingItem`, `toggleShoppingItem`, `updateShoppingItem`, `deleteShoppingItem`, `clearCheckedItems` | P0 | — | **Code review** | Mutations and lookups are household-scoped. |
 | SH2 | Fetch prices (single + batch) | `/shopping` | `fetchItemPrices`, `fetchAllPrices` | P0 | — | **Not exercised** | Rate limits in server |
+| SH3 | Mobile Store mode and bulk paste import | `/shopping` | `addShoppingItem` | P0 | — | **Code review + smoke redirect** | Manual mobile QA required for authenticated flow |
+| SH4 | Put checked groceries into inventory with per-item destination / expiry | `/shopping` | `putAwayShoppingItems`, `undoPutAwayShoppingItems` | P0 | — | **Code review** | Confirm modal opens for checked items in manual QA |
 | **Deals & prices (Kassalapp)** |
-| D1 | Search products | `/deals` (Search tab) | `searchProducts` | P1 | — | **Not exercised** | POST |
+| D1 | Search products | `/deals` (Search tab) | `searchProducts` | P1 | — | **Not exercised** | POST via Vercel server runtime |
 | D2 | Deals for shopping list | `/deals` (My Deals) | `getDealsForShoppingList` | P0 | — | **Not exercised** | GET |
 | D3 | Select deal for item | `/deals`, `/shopping` | `selectDealForItem` | P1 | — | **Code review** | Update is scoped to household + item id. |
 | D4 | Price drops | `/deals` | `getPriceDrops` | P1 | — | **Not exercised** | |
@@ -41,11 +43,16 @@
 | W1 | Waste logs & stats | `/waste` | `getWasteLogs`, `getWasteStats`, `addWasteLog` | P1 | — | **Not exercised** | Charts: empty + populated |
 | **Settings** |
 | ST1 | Profile / household / preferences UI | `/settings` | households + `recipe-preferences` | P1 | — | **Not exercised** | |
+| ST2 | Expiry reminder preferences and dashboard preview | `/settings`, `/` | `getNotificationPreferences`, `saveNotificationPreferences`, `getExpiryReminderPreview` | P0 | — | **Code review** | In-app reminders only; email delivery deferred |
+| **Trust & insights** |
+| T1 | Public privacy / terms pages | `/privacy`, `/terms` | — | P0 | — | **Smoke** | Signed-out smoke coverage added |
+| G1 | Purchase history grocery insights | `/`, `/shopping` | `getPurchaseHistorySummary` | P1 | — | **Code review** | Dashboard cards and shopping recap |
 | **Non-functional (see FUNCTIONAL_CHECK_RESULTS.md)** |
 | N1 | HTTPS, secrets not in client bundle | — | `env` / wrangler | P0 | — | **Build OK** | `npm run build` succeeded |
 | N2 | IDOR / household scoping | — | All server modules | P0 | — | **Pass (spot)** | Household context helper is centralized and applied across food/shopping/deals mutations. |
 | N3 | Accessibility | All routes | — | P1 | — | **Not run** | Manual / axe |
 | N4 | Performance (LCP, heavy routes) | `/deals`, `/recipes` | — | P1 | — | **Not run** | Lighthouse |
+| N5 | PWA install metadata and offline message | `/manifest.webmanifest`, all routes | — | P1 | — | **Smoke + manual required** | Manifest smoke added; offline and install checks documented in runbook |
 
 ---
 

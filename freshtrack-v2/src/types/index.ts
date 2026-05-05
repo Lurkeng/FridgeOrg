@@ -166,6 +166,7 @@ export interface RecipePreferences {
 export interface ShoppingListItem {
   id: string;
   household_id: string;
+  list_id?: string | null;
   name: string;
   category: FoodCategory;
   quantity: number;
@@ -186,6 +187,49 @@ export interface ShoppingListItem {
 export interface StorePriceEntry {
   store: string;
   price: number;  // NOK
+}
+
+export interface ShoppingList {
+  id: string;
+  household_id: string;
+  name: string;
+  description?: string | null;
+  is_default: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PutAwayItemOverride {
+  id: string;
+  location?: StorageLocation;
+  expiryDate?: string;
+  shelf?: string | null;
+  notes?: string | null;
+}
+
+export interface PutAwayShoppingItemsInput {
+  listId?: string;
+  itemIds: string[];
+  defaultLocation: StorageLocation;
+  itemOverrides?: PutAwayItemOverride[];
+}
+
+export interface PurchaseHistoryEntry {
+  id: string;
+  household_id: string;
+  list_id?: string | null;
+  source_shopping_item_id?: string | null;
+  name: string;
+  category: FoodCategory;
+  quantity: number;
+  unit: string;
+  price?: number | null;
+  store?: string | null;
+  barcode?: string | null;
+  stored_location: StorageLocation;
+  purchased_at: string;
+  created_by?: string | null;
 }
 
 // ── Achievements / Gamification ────────────────────────────────────────────

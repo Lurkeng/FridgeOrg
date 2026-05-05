@@ -4,12 +4,15 @@ import { useFoodItems } from "@/hooks/useFoodItems";
 import { useWasteStats } from "@/hooks/useWaste";
 import { useAchievements, useCheckAchievements } from "@/hooks/useAchievements";
 import { useCountUp } from "@/hooks/useCountUp";
+import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
+import { usePurchaseHistorySummary } from "@/hooks/usePurchaseHistorySummary";
+import { useAppPreferences } from "@/lib/app-preferences";
 import GlassCard from "@/components/ui/GlassCard";
 import { Badge } from "@/components/ui/Badge";
 import { DashboardSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { cn, getCategoryEmoji, getExpiryStatus, formatRelativeDate } from "@/lib/utils";
-import { Package, Refrigerator, Snowflake, AlertTriangle, Apple, ScanLine, ArrowRight, AlertCircle, Sparkles, TrendingDown, TrendingUp, PartyPopper, Coins, Lock, Flame, Leaf } from "lucide-react";
+import { Package, Refrigerator, Snowflake, AlertTriangle, Apple, ScanLine, ArrowRight, AlertCircle, Sparkles, TrendingDown, TrendingUp, PartyPopper, Coins, Lock, Flame, Leaf, Bell } from "lucide-react";
 import { getInSeasonNow } from "@/lib/norwegian-seasons";
 import type { FoodItem, FoodCategory, StorageLocation, WasteStats, AchievementKey } from "@/types";
 
@@ -47,10 +50,12 @@ function StatCard({ label, value, icon: Icon, gradient, glowClass, delay, alert,
 function ExpiringMiniCard({ item, index }: { item: FoodItem; index: number }) {
   const status = getExpiryStatus(item.expiry_date);
   const statusColor = status === "expired" || status === "expiring" ? "danger" : status === "use_soon" ? "warning" : "success";
+  const accent: "danger" | "warning" | "fresh" = status === "expired" || status === "expiring" ? "danger" : status === "use_soon" ? "warning" : "fresh";
   return (
-    <GlassCard className="p-4 flex-shrink-0 w-44" staggerIndex={index} hover>
+    <GlassCard className="p-4 flex-shrink-0 w-44" staggerIndex={index} hover accentBar={accent}>
+      <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-[rgba(21,19,15,0.5)] mb-2">Item · {String(index + 1).padStart(2, "0")}</p>
       <div className="text-2xl mb-2">{getCategoryEmoji(item.category as FoodCategory)}</div>
-      <p className="text-sm font-semibold text-slate-800 truncate mb-1.5">{item.name}</p>
+      <p className="font-display text-base text-[var(--ft-ink)] leading-tight truncate mb-2">{item.name}</p>
       <Badge variant={statusColor} dot glow size="sm">{formatRelativeDate(item.expiry_date)}</Badge>
     </GlassCard>
   );
@@ -59,6 +64,7 @@ function ExpiringMiniCard({ item, index }: { item: FoodItem; index: number }) {
 function ActionCard({ to, emoji, title, desc, gradient, delay }: {
   to: string; emoji: string; title: string; desc: string; gradient: string; delay: number;
 }) {
+  const { t } = useAppPreferences();
   return (
     <Link to={to} className="block group">
       <GlassCard className="relative cursor-pointer overflow-hidden p-6" staggerIndex={delay} hover>
@@ -67,7 +73,7 @@ function ActionCard({ to, emoji, title, desc, gradient, delay }: {
         <h3 className="mb-1.5 font-mono text-[12px] font-black uppercase tracking-[0.14em] text-[var(--ft-ink)] transition-colors group-hover:text-[var(--ft-signal)]">{title}</h3>
         <p className="text-sm leading-relaxed text-[rgba(21,19,15,0.62)]">{desc}</p>
         <div className="mt-4 flex translate-x-2 items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ft-signal)] opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
-          Open <ArrowRight className="w-3 h-3" />
+          {t("dashboard.open")} <ArrowRight className="w-3 h-3" />
         </div>
       </GlassCard>
     </Link>
@@ -106,29 +112,30 @@ function WasteSummaryBanner({ stats }: { stats: WasteStats }) {
   }
 
   return (
-      <div className="glass-frost p-4 mb-6 animate-fade-in-up stagger-4">
+    <article className="relative mb-6 animate-fade-in-up stagger-4 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-4">
+      <span aria-hidden className={cn("pointer-events-none absolute left-0 right-0 top-0 h-[2px]", hasWasteThisMonth ? "bg-[var(--ft-signal)]" : "bg-[var(--ft-pickle)]")} />
       {!hasWasteThisMonth ? (
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-fresh-500/15 flex items-center justify-center flex-shrink-0">
-            <PartyPopper className="w-5 h-5 text-fresh-600" />
+          <div className="h-10 w-10 border border-[var(--ft-ink)] bg-[rgba(183,193,103,0.18)] flex items-center justify-center flex-shrink-0">
+            <PartyPopper className="w-5 h-5 text-[var(--ft-pickle)]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-fresh-800">Zero waste this month!</p>
-            <p className="text-xs text-fresh-600">Keep it up. Every item used is money saved.</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-pickle)]">Front page</p>
+            <p className="font-display text-xl text-[var(--ft-ink)] leading-tight">Zero waste this month.</p>
+            <p className="font-sans text-xs text-[rgba(21,19,15,0.62)] mt-0.5">Every item used is money saved.</p>
           </div>
         </div>
       ) : (
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-danger-500/15 flex items-center justify-center flex-shrink-0">
-            <Coins className="w-5 h-5 text-danger-600" />
+          <div className="h-10 w-10 border border-[var(--ft-signal)] bg-[rgba(184,50,30,0.08)] flex items-center justify-center flex-shrink-0">
+            <Coins className="w-5 h-5 text-[var(--ft-signal)]" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2">
-              <p className="text-sm font-bold text-slate-800">
-                This month's waste: <span className="text-danger-600">{thisMonthCost.toFixed(0)} kr</span>
-              </p>
-            </div>
-            <p className="text-xs text-slate-500">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[rgba(21,19,15,0.55)]">Ledger · this month</p>
+            <p className="font-display text-xl text-[var(--ft-ink)] leading-tight">
+              <span className="text-[var(--ft-signal)]">{thisMonthCost.toFixed(0)} kr</span> wasted
+            </p>
+            <p className="font-sans text-xs text-[rgba(21,19,15,0.62)] mt-0.5">
               {stats.totalCost > 0
                 ? `${stats.totalCost.toFixed(0)} kr wasted in last 90 days`
                 : "Track and reduce waste to save money"}
@@ -136,21 +143,116 @@ function WasteSummaryBanner({ stats }: { stats: WasteStats }) {
           </div>
           {trendPercent !== null && (
             <div className={cn(
-              "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0",
+              "inline-flex items-center gap-1 px-2.5 py-1 border font-mono text-[10px] uppercase tracking-[0.18em] flex-shrink-0",
               trendIsDown
-                ? "bg-fresh-100/80 text-fresh-700"
+                ? "border-[var(--ft-pickle)] bg-[rgba(183,193,103,0.18)] text-[var(--ft-ink)]"
                 : trendIsUp
-                  ? "bg-danger-100/80 text-danger-700"
-                  : "bg-slate-100/80 text-slate-600",
+                  ? "border-[var(--ft-signal)] bg-[rgba(184,50,30,0.08)] text-[var(--ft-signal)]"
+                  : "border-[var(--ft-ink)] bg-[var(--ft-bone)] text-[var(--ft-ink)]",
             )}>
-              {trendIsDown ? (
-                <TrendingDown className="w-3.5 h-3.5" />
-              ) : trendIsUp ? (
-                <TrendingUp className="w-3.5 h-3.5" />
-              ) : null}
+              {trendIsDown ? <TrendingDown className="w-3 h-3" /> : trendIsUp ? <TrendingUp className="w-3 h-3" /> : null}
               {trendIsDown ? "" : "+"}{trendPercent}%
             </div>
           )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ReminderPreviewCard() {
+  const { preview } = useNotificationPreferences();
+  const { t } = useAppPreferences();
+  if (!preview?.preferences?.enabled) return null;
+
+  return (
+    <GlassCard className="mb-6 p-4 animate-fade-in-up stagger-4" hover={false}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-warning-600" />
+          <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">{t("dashboard.nextReminder")}</h3>
+        </div>
+        <Link to="/settings" className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-ink)] underline underline-offset-4 decoration-[var(--ft-pickle)] hover:text-[var(--ft-signal)] transition-colors">
+          {t("dashboard.tuneSettings")}
+        </Link>
+      </div>
+      {preview.items.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-sm text-[rgba(21,19,15,0.66)]">
+            {preview.items.length} item{preview.items.length === 1 ? "" : "s"} will show in your {preview.preferences.digestCadence} reminder.
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {preview.items.slice(0, 4).map((item) => (
+              <span key={item.id} className="inline-flex shrink-0 items-center gap-1.5 border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-3 py-1.5 text-xs font-medium text-[var(--ft-ink)]">
+                {getCategoryEmoji(item.category as FoodCategory)} {item.name} · {formatRelativeDate(item.expiryDate)}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-[rgba(21,19,15,0.66)]">
+          Nothing is expiring inside your {preview.preferences.daysBefore}-day reminder window.
+        </p>
+      )}
+    </GlassCard>
+  );
+}
+
+function GroceryInsightsPanel() {
+  const { summary } = usePurchaseHistorySummary();
+  const { t } = useAppPreferences();
+  const hasHistory = summary.monthItemsBought > 0 || summary.repeatedItems.length > 0;
+  if (!hasHistory) return null;
+
+  return (
+    <div className="mb-8 animate-fade-in-up stagger-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Coins className="h-4 w-4 text-[var(--ft-signal)]" />
+        <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">{t("dashboard.groceryInsights")}</h2>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4">
+        <GlassCard className="p-4" hover={false}>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[rgba(21,19,15,0.52)]">This month</p>
+          <p className="mt-2 text-3xl font-black text-[var(--ft-ink)]">{summary.monthItemsBought}</p>
+          <p className="text-xs text-[rgba(21,19,15,0.62)]">items bought</p>
+        </GlassCard>
+        <GlassCard className="p-4" hover={false}>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[rgba(21,19,15,0.52)]">Spend logged</p>
+          <p className="mt-2 text-3xl font-black text-[var(--ft-ink)]">{summary.estimatedSpend.toFixed(0)} kr</p>
+          <p className="text-xs text-[rgba(21,19,15,0.62)]">from priced items</p>
+        </GlassCard>
+        <GlassCard className="p-4 md:col-span-2" hover={false}>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[rgba(21,19,15,0.52)]">Most repeated</p>
+          <div className="mt-3 space-y-2">
+            {summary.repeatedItems.slice(0, 3).map((item) => (
+              <div key={item.name} className="flex items-center justify-between border-b border-[rgba(21,19,15,0.12)] pb-2 text-sm">
+                <span>{getCategoryEmoji(item.category as FoodCategory)} {item.name}</span>
+                <span className="font-semibold">{item.count}×</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      </div>
+      {(summary.categoryTrend.length > 0 || summary.storeTrend.length > 0 || summary.wasteAvoidedOpportunities.length > 0) && (
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <GlassCard className="p-4" hover={false}>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[rgba(21,19,15,0.52)]">Category trend</p>
+            {summary.categoryTrend.slice(0, 3).map((row) => (
+              <p key={row.category} className="text-sm text-[rgba(21,19,15,0.72)]">{getCategoryEmoji(row.category as FoodCategory)} {row.category}: {row.count}</p>
+            ))}
+          </GlassCard>
+          <GlassCard className="p-4" hover={false}>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[rgba(21,19,15,0.52)]">Store trend</p>
+            {summary.storeTrend.length ? summary.storeTrend.map((row) => (
+              <p key={row.store} className="text-sm text-[rgba(21,19,15,0.72)]">{row.store}: {row.count} items</p>
+            )) : <p className="text-sm text-[rgba(21,19,15,0.58)]">Fetch prices to build store insights.</p>}
+          </GlassCard>
+          <GlassCard className="p-4" hover={false}>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[rgba(21,19,15,0.52)]">Waste avoided</p>
+            {summary.wasteAvoidedOpportunities.length ? summary.wasteAvoidedOpportunities.map((row) => (
+              <p key={row.name} className="text-sm text-[rgba(21,19,15,0.72)]">{row.name}: bought {row.count}× without waste</p>
+            )) : <p className="text-sm text-[rgba(21,19,15,0.58)]">Put away groceries to reveal wins.</p>}
+          </GlassCard>
         </div>
       )}
     </div>
@@ -170,11 +272,11 @@ const ACHIEVEMENT_DEFS: Record<AchievementKey, { emoji: string; title: string; d
 };
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "bg-fresh-500 text-white shadow-[0_0_12px_rgba(34,197,94,0.35)]",
-  B: "bg-frost-500 text-white shadow-[0_0_12px_rgba(14,165,233,0.35)]",
-  C: "bg-warning-400 text-white shadow-[0_0_12px_rgba(245,158,11,0.3)]",
-  D: "bg-orange-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.3)]",
-  F: "bg-danger-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.35)]",
+  A: "bg-[var(--ft-pickle)] text-[var(--ft-ink)] border border-[var(--ft-ink)] shadow-[2px_2px_0_var(--ft-ink)]",
+  B: "bg-[var(--ft-bone)] text-[var(--ft-ink)] border border-[var(--ft-ink)] shadow-[2px_2px_0_var(--ft-pickle)]",
+  C: "bg-[#f5e0a3] text-[var(--ft-ink)] border border-[var(--ft-ink)] shadow-[2px_2px_0_var(--ft-ink)]",
+  D: "bg-[#e6a96b] text-[var(--ft-ink)] border border-[var(--ft-ink)] shadow-[2px_2px_0_var(--ft-ink)]",
+  F: "bg-[var(--ft-signal)] text-[var(--ft-bone)] border border-[var(--ft-ink)] shadow-[2px_2px_0_var(--ft-ink)]",
 };
 
 function AchievementsPanel() {
@@ -227,22 +329,21 @@ function AchievementsPanel() {
       {/* Streak + Grade row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         {/* Waste-free streak */}
-        <GlassCard className="p-4 flex items-center gap-3" staggerIndex={4} hover={false}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-sm">
-            <Flame className="w-5 h-5 text-white" />
+        <GlassCard className="p-4 flex items-center gap-3" staggerIndex={4} hover={false} accentBar="warning">
+          <div className="h-12 w-12 border border-[var(--ft-ink)] bg-[var(--ft-signal)] flex items-center justify-center shadow-[2px_2px_0_var(--ft-ink)]">
+            <Flame className="w-6 h-6 text-[var(--ft-bone)]" strokeWidth={1.6} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-bold text-slate-800">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[rgba(21,19,15,0.55)]">Streak</p>
+            <p className="font-display text-2xl text-[var(--ft-ink)] leading-none mt-0.5">
               {stats.wasteStreak > 0 ? (
-                <>{stats.wasteStreak} day{stats.wasteStreak !== 1 ? "s" : ""} without waste!</>
+                <>{stats.wasteStreak} <span className="font-sans text-base">day{stats.wasteStreak !== 1 ? "s" : ""} clean</span></>
               ) : (
-                <>Start your streak!</>
+                <>Start your streak.</>
               )}
             </p>
-            <p className="text-xs text-slate-500">
-              {stats.wasteStreak > 0
-                ? "Keep it going. Every day counts."
-                : "Avoid food waste to build your streak"}
+            <p className="font-sans text-xs text-[rgba(21,19,15,0.6)] mt-1">
+              {stats.wasteStreak > 0 ? "Keep it going. Every day counts." : "Avoid food waste to build your streak."}
             </p>
           </div>
           {stats.wasteStreak >= 7 && (
@@ -251,20 +352,21 @@ function AchievementsPanel() {
         </GlassCard>
 
         {/* Monthly grade */}
-        <GlassCard className="p-4 flex items-center gap-3" staggerIndex={5} hover={false}>
+        <GlassCard className="p-4 flex items-center gap-3" staggerIndex={5} hover={false} accentBar="default">
           <div className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black",
+            "h-12 w-12 flex items-center justify-center font-display text-2xl",
             GRADE_COLORS[stats.monthlyWasteScore] ?? GRADE_COLORS.C,
           )}>
             {stats.monthlyWasteScore}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800">Monthly Waste Score</p>
-            <p className="text-xs text-slate-500">
-              {stats.monthlyWasteScore === "A" && "Excellent. 50%+ less waste than last month"}
-              {stats.monthlyWasteScore === "B" && "Great. 20-50% less waste than last month"}
-              {stats.monthlyWasteScore === "C" && "Good. Slightly less waste than last month"}
-              {stats.monthlyWasteScore === "D" && "Waste increased a little this month"}
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[rgba(21,19,15,0.55)]">Grade · this month</p>
+            <p className="font-display text-lg text-[var(--ft-ink)] leading-tight">Monthly waste score</p>
+            <p className="font-sans text-xs text-[rgba(21,19,15,0.6)] mt-0.5">
+              {stats.monthlyWasteScore === "A" && "Excellent. 50%+ less waste than last month."}
+              {stats.monthlyWasteScore === "B" && "Great. 20–50% less waste than last month."}
+              {stats.monthlyWasteScore === "C" && "Good. Slightly less waste than last month."}
+              {stats.monthlyWasteScore === "D" && "Waste increased a little this month."}
               {stats.monthlyWasteScore === "F" && "Waste increased significantly. You can do better."}
             </p>
           </div>
@@ -280,27 +382,28 @@ function AchievementsPanel() {
             <div key={key} className="relative group">
               <GlassCard
                 className={cn(
-                  "p-3 text-center transition-all duration-200",
-                  !unlocked && "opacity-40 grayscale",
-                  unlocked && "hover:shadow-glass-hover hover:-translate-y-0.5",
+                  "p-3 text-center transition-all duration-150",
+                  !unlocked && "opacity-50 grayscale",
+                  unlocked && "hover:-translate-y-0.5 hover:shadow-[3px_3px_0_var(--ft-ink)]",
                 )}
                 hover={false}
                 staggerIndex={6}
+                accentBar={unlocked ? "fresh" : undefined}
               >
-                <div className="text-2xl mb-1">
+                <div className="text-2xl mb-1.5 mt-1">
                   {unlocked ? def.emoji : (
-                    <Lock className="w-5 h-5 text-slate-400 mx-auto" />
+                    <Lock className="w-5 h-5 text-[rgba(21,19,15,0.4)] mx-auto" />
                   )}
                 </div>
                 <p className={cn(
-                  "text-xs font-semibold truncate",
-                  unlocked ? "text-slate-800" : "text-slate-400",
+                  "font-mono text-[9px] uppercase tracking-[0.18em] truncate",
+                  unlocked ? "text-[var(--ft-ink)]" : "text-[rgba(21,19,15,0.4)]",
                 )}>
                   {def.title}
                 </p>
               </GlassCard>
               {/* Tooltip */}
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1 glass-heavy rounded-lg text-xs font-medium text-slate-700 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-10 shadow-glass">
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 border border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] font-mono text-[10px] uppercase tracking-[0.16em] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-10 shadow-[3px_3px_0_var(--ft-pickle)]">
                 {def.description}
               </div>
             </div>
@@ -333,7 +436,7 @@ const STARTER_PACKS: StarterPack[] = [
   {
     label: "Basics",
     emoji: "\u{1F9C8}",
-    gradient: "from-frost-400 to-frost-600",
+    gradient: "bg-[var(--ft-ink)]",
     items: [
       { name: "Melk",  category: "dairy",  location: "fridge", quantity: 1, unit: "L",    daysUntilExpiry: 10 },
       { name: "Egg",   category: "dairy",  location: "fridge", quantity: 12, unit: "stk", daysUntilExpiry: 21 },
@@ -344,7 +447,7 @@ const STARTER_PACKS: StarterPack[] = [
   {
     label: "Produce",
     emoji: "\u{1F96C}",
-    gradient: "from-fresh-400 to-fresh-600",
+    gradient: "bg-[var(--ft-pickle)]",
     items: [
       { name: "Epler",   category: "produce", location: "fridge", quantity: 4, unit: "stk", daysUntilExpiry: 14 },
       { name: "Bananer", category: "produce", location: "pantry", quantity: 4, unit: "stk", daysUntilExpiry: 5 },
@@ -368,6 +471,7 @@ function DashboardPage() {
   const { items, expiringItems, expiredItems, fridgeItems, freezerItems, isLoading, addItem } = useFoodItems();
   const { data: wasteStats } = useWasteStats();
   const { toast } = useToast();
+  const { t } = useAppPreferences();
   const [addingPack, setAddingPack] = useState<string | null>(null);
 
   const handleStarterPack = async (pack: StarterPack) => {
@@ -401,40 +505,52 @@ function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
-      {/* ── Header ─────────────────────────────────────────── */}
-      <div className="mb-8 grid gap-5 border-b border-[var(--ft-ink)] pb-6 animate-fade-in-up md:grid-cols-[1fr_auto]">
-        <div>
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--ft-signal)]">Dashboard</p>
-          <h1 className="dashboard-display mt-2 max-w-3xl text-[clamp(3.3rem,8vw,8rem)] font-black leading-[0.82] tracking-[-0.07em] text-[var(--ft-ink)]">
-            Today’s fridge report.
-          </h1>
+      {/* ── Editorial header ────────────────────────────────── */}
+      <header className="mb-10 animate-fade-in-up">
+        <div className="flex items-center justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3">
+            <span className="h-px w-10 bg-[var(--ft-ink)]" aria-hidden />
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--ft-signal)]">{t("dashboard.kicker")}</p>
+          </div>
+          <p className="hidden sm:block font-mono text-[10px] uppercase tracking-[0.22em] text-[rgba(21,19,15,0.48)]">
+            Vol. I · No. {String(new Date().getDate()).padStart(2, "0")} · {new Date().toLocaleDateString("nb-NO", { month: "short", year: "numeric" })}
+          </p>
         </div>
-        <p className="max-w-64 self-end border-l border-[var(--ft-ink)] pl-4 text-sm leading-snug text-[rgba(21,19,15,0.66)]">
-          The useful version of opening the fridge three times and hoping it tells you what to cook.
-        </p>
-      </div>
+        <div className="grid gap-6 border-b border-[var(--ft-ink)] pb-8 md:grid-cols-[minmax(0,1fr)_240px] md:gap-10">
+          <h1 className="dashboard-display text-[clamp(2.4rem,5.4vw,5.25rem)] font-black leading-[0.92] tracking-[-0.045em] text-[var(--ft-ink)] [text-wrap:balance]">
+            {t("dashboard.title")}
+          </h1>
+          <p className="self-end border-l-2 border-[var(--ft-pickle)] pl-5 text-[13px] leading-relaxed text-[rgba(21,19,15,0.66)] md:max-w-[220px]">
+            <span className="block font-mono text-[9px] font-bold uppercase tracking-[0.22em] text-[var(--ft-ink)] mb-2">Editor's note</span>
+            {t("dashboard.subtitle")}
+          </p>
+        </div>
+      </header>
 
       {/* ── Stat cards ─────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Items"   value={items.length}          icon={Package}       gradient="bg-gradient-to-br from-slate-500 to-slate-700"    glowClass="text-slate-800"      delay={0} />
-        <StatCard label="In Fridge"     value={fridgeItems.length}    icon={Refrigerator}  gradient="bg-gradient-to-br from-frost-400 to-frost-600"     glowClass="text-gradient-frost" delay={1} />
-        <StatCard label="In Freezer"    value={freezerItems.length}   icon={Snowflake}     gradient="bg-gradient-to-br from-frost-500 to-frost-700"     glowClass="text-gradient-frost" delay={2} />
-        <StatCard label="Expiring Soon" value={expiringItems.length}  icon={AlertTriangle} gradient="bg-gradient-to-br from-warning-400 to-warning-600" glowClass="text-warning-700"    delay={3} alert variant="warning" />
+        <StatCard label={t("dashboard.totalItems")}   value={items.length}          icon={Package}       gradient="bg-[var(--ft-ink)]"        glowClass="text-[var(--ft-ink)]"     delay={0} />
+        <StatCard label={t("dashboard.inFridge")}     value={fridgeItems.length}    icon={Refrigerator}  gradient="bg-[var(--ft-pickle)]"     glowClass="text-[var(--ft-ink)]"     delay={1} />
+        <StatCard label={t("dashboard.inFreezer")}    value={freezerItems.length}   icon={Snowflake}     gradient="bg-[var(--ft-ink)]"        glowClass="text-[var(--ft-ink)]"     delay={2} />
+        <StatCard label={t("dashboard.expiringSoon")} value={expiringItems.length}  icon={AlertTriangle} gradient="bg-gradient-to-br from-warning-400 to-warning-600" glowClass="text-warning-700"    delay={3} alert variant="warning" />
       </div>
 
       {/* ── Expired items alert ────────────────────────────── */}
       {expiredItems.length > 0 && (
-        <GlassCard variant="danger" className="p-4 mb-6 flex items-start gap-3" animate staggerIndex={4}>
-          <div className="w-9 h-9 rounded-xl bg-danger-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <AlertCircle className="w-5 h-5 text-danger-600 animate-pulse-soft" />
+        <GlassCard variant="danger" className="p-4 mb-6 flex items-start gap-3" animate staggerIndex={4} accentBar="danger">
+          <div className="h-10 w-10 border border-[var(--ft-signal)] bg-[rgba(184,50,30,0.1)] flex items-center justify-center flex-shrink-0 mt-0.5">
+            <AlertCircle className="w-5 h-5 text-[var(--ft-signal)] animate-pulse-soft" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-danger-800 mb-0.5">{expiredItems.length} expired item{expiredItems.length > 1 ? "s" : ""}</h3>
-            <p className="text-sm text-danger-700">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-signal)]">Stop press</p>
+            <h3 className="font-display text-xl text-[var(--ft-ink)] mt-0.5 leading-tight">
+              {expiredItems.length} expired item{expiredItems.length > 1 ? "s" : ""}
+            </h3>
+            <p className="font-sans text-sm text-[rgba(21,19,15,0.7)] mt-1">
               <span className="font-medium">{expiredItems.map((i) => i.name).join(", ")}</span>. Please remove or mark as wasted.
             </p>
           </div>
-          <Link to="/items" className="flex-shrink-0 text-xs font-semibold text-danger-600 hover:text-danger-800 transition-colors whitespace-nowrap mt-1">
+          <Link to="/items" className="flex-shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-ink)] underline underline-offset-4 decoration-[var(--ft-signal)] hover:text-[var(--ft-signal)] transition-colors whitespace-nowrap mt-1">
             View all <ArrowRight className="w-3 h-3 inline ml-0.5" />
           </Link>
         </GlassCard>
@@ -443,13 +559,14 @@ function DashboardPage() {
       {/* ── Expiring soon carousel ─────────────────────────── */}
       {expiringItems.length > 0 && (
         <div className="mb-8 animate-fade-in-up stagger-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <span role="img" aria-label="clock">&#x23F0;</span> Use These Soon
-            </h2>
+          <div className="flex items-baseline justify-between mb-4 border-b border-[var(--ft-ink)] pb-2">
+            <div className="flex items-baseline gap-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-signal)]">Today's column</span>
+              <h2 className="font-display text-xl text-[var(--ft-ink)] leading-none">{t("dashboard.useSoon")}</h2>
+            </div>
             {expiringItems.length > 6 && (
-              <Link to="/items" className="text-sm font-semibold text-frost-600 hover:text-frost-700 flex items-center gap-1 transition-colors">
-                View all {expiringItems.length} <ArrowRight className="w-3.5 h-3.5" />
+              <Link to="/items" className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-ink)] underline underline-offset-4 decoration-[var(--ft-pickle)] hover:text-[var(--ft-signal)] transition-colors flex items-center gap-1">
+                {t("dashboard.viewAll")} {expiringItems.length} <ArrowRight className="w-3 h-3" />
               </Link>
             )}
           </div>
@@ -459,8 +576,12 @@ function DashboardPage() {
         </div>
       )}
 
+      <ReminderPreviewCard />
+
       {/* ── Waste summary ──────────────────────────────────── */}
       {wasteStats && <WasteSummaryBanner stats={wasteStats as WasteStats} />}
+
+      <GroceryInsightsPanel />
 
       {/* ── Achievements ───────────────────────────────────── */}
       <AchievementsPanel />
@@ -470,13 +591,13 @@ function DashboardPage() {
         const seasonal = getInSeasonNow();
         if (seasonal.length === 0) return null;
         return (
-          <GlassCard className="p-4 mb-6 animate-fade-in-up stagger-5" hover={false}>
+          <GlassCard className="p-4 mb-6 animate-fade-in-up stagger-5" hover={false} accentBar="fresh">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Leaf className="w-4 h-4 text-fresh-500" />
-                <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">In Season</h3>
+                <Leaf className="w-4 h-4 text-[var(--ft-pickle)]" />
+                <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ft-ink)]">In season · Norway</h3>
               </div>
-              <Link to="/shopping" className="text-xs font-semibold text-frost-600 hover:text-frost-800 flex items-center gap-1 transition-colors">
+              <Link to="/shopping" className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-ink)] underline underline-offset-4 decoration-[var(--ft-pickle)] hover:text-[var(--ft-signal)] transition-colors flex items-center gap-1">
                 See all <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
@@ -491,7 +612,7 @@ function DashboardPage() {
                 </span>
               ))}
               {seasonal.length > 6 && (
-                <span className="px-2.5 py-1.5 rounded-full text-xs text-slate-400 font-medium">+{seasonal.length - 6} more</span>
+                <span className="px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.5)]">+{seasonal.length - 6} more</span>
               )}
             </div>
           </GlassCard>
@@ -500,14 +621,15 @@ function DashboardPage() {
 
       {/* ── Quick Actions ──────────────────────────────────── */}
       <div className="mb-6 animate-fade-in-up stagger-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4 text-frost-500" />
-          <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">Quick Actions</h2>
+        <div className="flex items-baseline gap-3 mb-4 border-b border-[var(--ft-ink)] pb-2">
+          <Sparkles className="w-4 h-4 text-[var(--ft-pickle)] self-center" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-signal)]">Plate · 03</span>
+          <h2 className="font-display text-xl text-[var(--ft-ink)] leading-none">{t("dashboard.quickActions")}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <ActionCard to="/items"   emoji="&#x1F34E;" title="Manage Food"   desc="Add, edit, or remove items from your inventory"           gradient="bg-gradient-to-r from-fresh-400 to-fresh-500"   delay={5} />
-          <ActionCard to="/scan"    emoji="&#x1F4F7;" title="Scan Barcode"  desc="Quick-add items by scanning product barcodes"             gradient="bg-gradient-to-r from-frost-400 to-frost-500"   delay={6} />
-          <ActionCard to="/recipes" emoji="&#x1F468;&#x200D;&#x1F373;" title="Find Recipes" desc="Discover what you can cook with what you have"            gradient="bg-gradient-to-r from-warning-400 to-warning-500" delay={7} />
+          <ActionCard to="/items"   emoji="&#x1F34E;" title={t("dashboard.manageFood")}   desc={t("dashboard.manageFoodDesc")}  gradient="bg-[var(--ft-pickle)]" delay={5} />
+          <ActionCard to="/scan"    emoji="&#x1F4F7;" title={t("dashboard.scanBarcode")}  desc={t("dashboard.scanBarcodeDesc")} gradient="bg-[var(--ft-ink)]"    delay={6} />
+          <ActionCard to="/recipes" emoji="&#x1F468;&#x200D;&#x1F373;" title={t("dashboard.findRecipes")} desc={t("dashboard.findRecipesDesc")} gradient="bg-[var(--ft-signal)]" delay={7} />
         </div>
       </div>
 
@@ -523,41 +645,42 @@ function DashboardPage() {
           </div>
 
           {/* Starter packs */}
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-4 h-4 text-frost-500" />
-            <h4 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ft-ink)]">Starter Packs</h4>
-            <span className="text-xs text-[rgba(21,19,15,0.52)]">Add common items in one tap</span>
+          <div className="flex items-baseline gap-3 mb-4 border-b border-[var(--ft-ink)] pb-2">
+            <Sparkles className="w-4 h-4 text-[var(--ft-pickle)] self-center" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-signal)]">Sub · 02</span>
+            <h4 className="font-display text-lg text-[var(--ft-ink)] leading-none">Starter packs</h4>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.5)] ml-auto">Add common items in one tap</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-            {STARTER_PACKS.map((pack) => (
+            {STARTER_PACKS.map((pack, i) => (
               <button
                 key={pack.label}
                 onClick={() => handleStarterPack(pack)}
                 disabled={addingPack !== null}
                 className={cn(
-                  "group relative glass p-5 text-left transition-all duration-300 overflow-hidden",
-                  "hover:-translate-y-1 hover:shadow-glass-hover active:scale-[0.98]",
-                  addingPack === pack.label && "ring-2 ring-frost-400/60",
+                  "group relative border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-5 text-left transition-all duration-150 overflow-hidden",
+                  "hover:-translate-y-0.5 hover:shadow-[3px_3px_0_var(--ft-ink)] active:translate-y-0 active:shadow-none",
+                  addingPack === pack.label && "shadow-[3px_3px_0_var(--ft-pickle)]",
                   addingPack !== null && addingPack !== pack.label && "opacity-50",
                 )}
               >
-                <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${pack.gradient} rounded-t-2xl`} />
+                <span aria-hidden className={cn("pointer-events-none absolute left-0 right-0 top-0 h-[2px]",
+                  i === 0 ? "bg-[var(--ft-pickle)]" : i === 1 ? "bg-[var(--ft-ink)]" : "bg-[var(--ft-signal)]"
+                )} />
 
-                <div className="flex items-center gap-3 mb-2.5">
+                <div className="flex items-baseline gap-3 mb-3">
                   <span className="text-2xl">{pack.emoji}</span>
-                  <div>
-                    <span className="text-sm font-bold text-slate-800">{pack.label}</span>
-                    <span className="ml-2 text-xs text-slate-400">{pack.items.length} items</span>
-                  </div>
+                  <span className="font-display text-lg text-[var(--ft-ink)] leading-none">{pack.label}</span>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.5)] ml-auto">{pack.items.length} items</span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  {pack.items.map((i) => i.name).join(", ")}
+                <p className="font-sans text-xs text-[rgba(21,19,15,0.65)] leading-relaxed">
+                  {pack.items.map((it) => it.name).join(", ")}
                 </p>
 
                 {addingPack === pack.label && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-[rgba(255,248,232,0.82)]">
-                    <div className="w-5 h-5 border-2 border-frost-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-[rgba(255,248,232,0.85)]">
+                    <div className="h-5 w-5 border-2 border-[var(--ft-ink)] border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
               </button>

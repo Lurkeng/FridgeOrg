@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { signIn, signUp } from "@/auth/client";
 import { useCreateHousehold, useJoinHousehold } from "@/hooks/useHousehold";
@@ -93,7 +93,7 @@ function AuthPage() {
             <div>
               <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em]">FreshTrack</p>
               <p className="mt-1 max-w-64 text-xs leading-snug text-[rgba(21,19,15,0.62)]">
-                Food memory for households that buy with good intent and forget by Thursday.
+                Norway-first food memory for households that shop at Kiwi, Rema, Meny, and the corner store.
               </p>
             </div>
             <p className="[writing-mode:vertical-rl] rotate-180 font-mono text-[10px] font-bold uppercase tracking-[0.32em] text-[var(--ft-signal)]">
@@ -118,7 +118,7 @@ function AuthPage() {
                 memory.
               </h1>
               <p className="mt-7 max-w-xl text-[clamp(1rem,1.7vw,1.35rem)] leading-snug text-[rgba(21,19,15,0.74)]">
-                FreshTrack turns expiry dates, shopping lists, and household habits into one blunt daily ledger.
+                FreshTrack turns expiry dates, Norwegian grocery lists, and household habits into one blunt daily ledger.
               </p>
             </div>
           </div>
@@ -127,7 +127,7 @@ function AuthPage() {
             <div className="border-b border-[var(--ft-ink)] p-3 sm:border-b-0 sm:border-r">11 starter items</div>
             <div className="border-b border-[var(--ft-ink)] p-3 sm:border-b-0 sm:border-r">2 min setup</div>
             <div className="border-b border-[var(--ft-ink)] p-3 sm:border-b-0 sm:border-r">1 household code</div>
-            <div className="p-3 text-[var(--ft-signal)]">zero dashboards before breakfast</div>
+            <div className="p-3 text-[var(--ft-signal)]">built for Norwegian grocery routines</div>
           </div>
         </div>
 
@@ -209,6 +209,14 @@ function AuthPage() {
                   minLength={mode === "signup" ? 6 : undefined}
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
                 />
+                {mode === "login" && (
+                  <Link
+                    to="/auth/reset"
+                    className="mt-1 block text-right font-mono text-[10px] text-[var(--ft-pickle)] hover:underline uppercase tracking-[0.16em]"
+                  >
+                    Forgot password?
+                  </Link>
+                )}
               </label>
 
               {mode === "signup" && (
@@ -265,6 +273,11 @@ function AuthPage() {
               <a href="/" className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--ft-ink)] underline decoration-[var(--ft-signal)] underline-offset-4">
                 Continue without account
               </a>
+            </div>
+
+            <div className="mt-4 flex gap-4 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[rgba(21,19,15,0.62)]">
+              <Link to="/privacy" className="hover:text-[var(--ft-signal)]">Privacy</Link>
+              <Link to="/terms" className="hover:text-[var(--ft-signal)]">Terms</Link>
             </div>
           </div>
 

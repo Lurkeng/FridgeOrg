@@ -3,11 +3,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useFoodItems } from "@/hooks/useFoodItems";
 import { AddItemForm } from "@/components/items/AddItemForm";
 import { Modal } from "@/components/ui/Modal";
-import GlassCard from "@/components/ui/GlassCard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ScanLine, Camera, AlertTriangle, Hash, ArrowRight } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import type { NutritionInfo } from "@/types";
+import { useAppPreferences } from "@/lib/app-preferences";
 
 export const Route = createFileRoute("/_app/scan")({
   component: ScanPage,
@@ -15,20 +15,21 @@ export const Route = createFileRoute("/_app/scan")({
 
 function ManualBarcodeEntry({ onSubmit }: { onSubmit: (code: string) => void }) {
   const [code, setCode] = useState("");
+  const { t } = useAppPreferences();
   return (
     <div className="flex gap-2">
       <input
         type="text" value={code} onChange={(e) => setCode(e.target.value)}
-        placeholder="Enter barcode number..."
-        className="flex-1 glass rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-frost-400/50 focus:bg-white/80 transition-all"
+        placeholder={t("scan.barcodePlaceholder")}
+        className="flex-1 border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-4 py-3 font-mono text-sm tracking-[0.18em] text-[var(--ft-ink)] placeholder:text-[rgba(21,19,15,0.32)] placeholder:tracking-[0.22em] outline-none transition-all duration-150 focus:bg-[var(--ft-bone)] focus:shadow-[2px_2px_0_var(--ft-ink)] focus:-translate-y-px hover:bg-[var(--ft-bone)]"
         onKeyDown={(e) => { if (e.key === "Enter" && code.trim()) { onSubmit(code.trim()); setCode(""); } }}
       />
       <button
         onClick={() => { if (code.trim()) { onSubmit(code.trim()); setCode(""); } }}
         disabled={!code.trim()}
-        className="px-6 py-3 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_24px_rgba(14,165,233,0.35)] transition-all disabled:opacity-50 disabled:pointer-events-none active:scale-[0.97]"
+        className="border border-[var(--ft-ink)] bg-[var(--ft-ink)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_var(--ft-pickle)] active:translate-y-0 active:shadow-[2px_2px_0_var(--ft-pickle)] disabled:cursor-not-allowed disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
       >
-        Look Up
+        {t("scan.lookUp")}
       </button>
     </div>
   );
@@ -37,6 +38,7 @@ function ManualBarcodeEntry({ onSubmit }: { onSubmit: (code: string) => void }) 
 function ScanPage() {
   const { addItem, items } = useFoodItems();
   const { toast } = useToast();
+  const { t } = useAppPreferences();
   const videoRef  = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [scanning, setScanning]       = useState(false);
@@ -60,9 +62,9 @@ function ScanPage() {
         setScanning(true);
       }
     } catch {
-      setError("Camera access denied. Please allow camera permissions to scan barcodes.");
+      setError(t("scan.cameraError"));
     }
-  }, []);
+  }, [t]);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -132,33 +134,38 @@ function ScanPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto">
-      <PageHeader title="Scan Barcode" subtitle="Point your camera at a product barcode to quickly add it" icon={<ScanLine className="w-5 h-5 text-frost-600" />} />
+      <PageHeader title={t("scan.title")} subtitle={t("scan.subtitle")} icon={<ScanLine className="w-5 h-5 text-[var(--ft-pickle)]" />} />
 
-      {/* Camera viewfinder */}
-      <GlassCard className="overflow-hidden mb-6 animate-fade-in-up stagger-1" hover={false}>
-        <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl overflow-hidden">
+      {/* Camera viewfinder — kept dark for contrast against the live feed; pickle-green optical accents */}
+      <div className="relative mb-6 border border-[var(--ft-ink)] bg-[var(--ft-ink)] shadow-[4px_4px_0_var(--ft-ink)] animate-fade-in-up stagger-1">
+        <div className="grid grid-cols-[1fr_auto] border-b border-[rgba(242,234,220,0.20)] font-mono text-[10px] uppercase tracking-[0.20em] text-[rgba(242,234,220,0.78)]">
+          <div className="px-4 py-2">{t("scan.opticalKicker")}</div>
+          <div className="border-l border-[rgba(242,234,220,0.20)] px-4 py-2 text-[var(--ft-pickle)]">
+            {scanning && cameraReady ? t("scan.statusLive") : cameraReady ? t("scan.statusReady") : error ? t("scan.statusFault") : t("scan.statusIdle")}
+          </div>
+        </div>
+        <div className="relative overflow-hidden bg-[#0c0a06]">
           <video ref={videoRef} className={`w-full aspect-video object-cover${!cameraReady ? " hidden" : ""}`} playsInline muted />
 
           {/* Active scanning overlay */}
           {scanning && cameraReady && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {/* Subtle vignette */}
-              <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20" />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/20" />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/30" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/30" />
 
-              <div className="relative w-64 h-40">
-                {/* Corner brackets */}
-                <div className="absolute -top-0.5 -left-0.5 w-10 h-10 rounded-tl-xl" style={{ borderWidth: "3px 0 0 3px", borderColor: "#38bdf8", borderStyle: "solid" }} />
-                <div className="absolute -top-0.5 -right-0.5 w-10 h-10 rounded-tr-xl" style={{ borderWidth: "3px 3px 0 0", borderColor: "#38bdf8", borderStyle: "solid" }} />
-                <div className="absolute -bottom-0.5 -left-0.5 w-10 h-10 rounded-bl-xl" style={{ borderWidth: "0 0 3px 3px", borderColor: "#38bdf8", borderStyle: "solid" }} />
-                <div className="absolute -bottom-0.5 -right-0.5 w-10 h-10 rounded-br-xl" style={{ borderWidth: "0 3px 3px 0", borderColor: "#38bdf8", borderStyle: "solid" }} />
+              <div className="relative h-40 w-64">
+                {/* Sharp registration corners — no rounding, pickle accent */}
+                <div className="absolute -top-0.5 -left-0.5 h-10 w-10" style={{ borderWidth: "2px 0 0 2px", borderColor: "var(--ft-pickle)", borderStyle: "solid" }} />
+                <div className="absolute -top-0.5 -right-0.5 h-10 w-10" style={{ borderWidth: "2px 2px 0 0", borderColor: "var(--ft-pickle)", borderStyle: "solid" }} />
+                <div className="absolute -bottom-0.5 -left-0.5 h-10 w-10" style={{ borderWidth: "0 0 2px 2px", borderColor: "var(--ft-pickle)", borderStyle: "solid" }} />
+                <div className="absolute -bottom-0.5 -right-0.5 h-10 w-10" style={{ borderWidth: "0 2px 2px 0", borderColor: "var(--ft-pickle)", borderStyle: "solid" }} />
                 {/* Scan line */}
-                <div className="absolute left-1 right-1 h-0.5 bg-gradient-to-r from-transparent via-frost-400 to-transparent animate-scan-line" />
+                <div className="absolute left-1 right-1 h-px bg-[var(--ft-pickle)] shadow-[0_0_8px_var(--ft-pickle)] animate-scan-line" />
               </div>
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-                <span className="glass text-xs text-white/90 px-4 py-1.5 rounded-full font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-frost-400 animate-pulse" />
-                  Scanning...
+                <span className="flex items-center gap-2 border border-[var(--ft-pickle)] bg-[rgba(12,10,6,0.85)] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.20em] text-[var(--ft-pickle)]">
+                  <span className="h-1.5 w-1.5 bg-[var(--ft-pickle)] animate-pulse" />
+                  {t("scan.scanning")}
                 </span>
               </div>
             </div>
@@ -166,36 +173,37 @@ function ScanPage() {
 
           {/* Camera off state */}
           {!cameraReady && !error && (
-            <div className="aspect-video flex flex-col items-center justify-center text-white gap-5 p-8">
-              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-                <Camera className="w-9 h-9 text-frost-300" />
+            <div className="flex aspect-video flex-col items-center justify-center gap-5 p-8 text-[var(--ft-bone)]">
+              <div className="flex h-20 w-20 items-center justify-center border border-[rgba(242,234,220,0.32)] bg-[rgba(242,234,220,0.06)]">
+                <Camera className="h-9 w-9 text-[var(--ft-pickle)]" strokeWidth={1.5} />
               </div>
               <div className="text-center">
-                <p className="text-white/90 text-sm font-medium mb-1">Camera preview will appear here</p>
-                <p className="text-white/50 text-xs">Point at a product barcode to auto-detect</p>
+                <p className="font-display text-[15px] font-semibold leading-snug">{t("scan.cameraPreview")}</p>
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(242,234,220,0.55)]">{t("scan.aimAtBarcode")}</p>
               </div>
               <button
                 type="button"
                 onClick={startCamera}
-                className="px-8 py-3 bg-gradient-to-r from-frost-500 to-frost-600 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.4)] transition-all active:scale-[0.97]"
+                className="border border-[var(--ft-bone)] bg-[var(--ft-pickle)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--ft-ink)] shadow-[3px_3px_0_var(--ft-bone)] transition-all hover:-translate-y-0.5 hover:shadow-[5px_5px_0_var(--ft-bone)] active:translate-y-0 active:shadow-[2px_2px_0_var(--ft-bone)]"
               >
-                Start Camera
+                {t("scan.startCamera")}
               </button>
             </div>
           )}
 
           {/* Camera error state */}
           {error && (
-            <div className="aspect-video flex flex-col items-center justify-center p-8 gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-warning-500/20 flex items-center justify-center">
-                <AlertTriangle className="w-8 h-8 text-warning-400" />
+            <div className="flex aspect-video flex-col items-center justify-center gap-4 p-8">
+              <div className="flex h-16 w-16 items-center justify-center border border-[var(--ft-signal)] bg-[rgba(184,50,30,0.16)]">
+                <AlertTriangle className="h-7 w-7 text-[var(--ft-signal)]" strokeWidth={2} />
               </div>
               <div className="text-center">
-                <p className="text-white/90 text-sm font-medium mb-1">Camera unavailable</p>
-                <p className="text-warning-200/80 text-center text-xs max-w-xs">{error}</p>
+                <p className="font-display text-[15px] font-semibold text-[var(--ft-bone)]">{t("scan.cameraUnavailable")}</p>
+                <p className="mx-auto mt-1 max-w-xs font-mono text-[10px] uppercase tracking-[0.16em] text-[rgba(242,234,220,0.62)]">{error}</p>
               </div>
-              <button type="button" onClick={startCamera} className="px-6 py-2.5 glass text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-all">
-                Try Again
+              <button type="button" onClick={startCamera}
+                className="border border-[var(--ft-bone)] bg-transparent px-5 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.20em] text-[var(--ft-bone)] transition-all hover:bg-[rgba(242,234,220,0.08)]">
+                {t("scan.tryAgain")}
               </button>
             </div>
           )}
@@ -203,47 +211,52 @@ function ScanPage() {
           {/* Stop button */}
           {scanning && cameraReady && (
             <div className="absolute top-3 right-3">
-              <button type="button" onClick={stopCamera} className="glass text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-white/20 transition-all">
-                Stop
+              <button type="button" onClick={stopCamera}
+                className="border border-[var(--ft-bone)] bg-[rgba(12,10,6,0.85)] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.20em] text-[var(--ft-bone)] transition-all hover:bg-[var(--ft-signal)] hover:border-[var(--ft-signal)]">
+                {t("scan.stop")}
               </button>
             </div>
           )}
         </div>
-      </GlassCard>
+      </div>
 
       {/* Product lookup spinner */}
       {lookingUp && (
-        <GlassCard variant="frost" className="p-4 mb-4 flex items-center gap-3 animate-fade-in" hover={false}>
-          <div className="w-4 h-4 border-2 border-frost-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-          <p className="text-sm font-medium text-frost-800">Barcode <span className="font-bold">{scannedCode}</span> detected — looking up product...</p>
-        </GlassCard>
+        <div className="mb-4 flex items-center gap-3 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-3 shadow-[2px_2px_0_var(--ft-ink)] animate-fade-in">
+          <span className="h-3.5 w-3.5 flex-shrink-0 animate-spin border border-[var(--ft-ink)] border-t-transparent" />
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ft-ink)]">
+            {t("scan.barcodePrefix")} <strong className="text-[var(--ft-signal)]">{scannedCode}</strong> · {t("scan.lookingUp")}
+          </p>
+        </div>
       )}
 
-      {/* Divider */}
-      <div className="flex items-center gap-3 mb-4 animate-fade-in-up stagger-2">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300/50 to-transparent" />
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">or enter manually</span>
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300/50 to-transparent" />
+      {/* Divider — editorial rule */}
+      <div className="mb-4 flex items-center gap-4 animate-fade-in-up stagger-2">
+        <span className="h-px flex-1 bg-[var(--ft-ink)]" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--ft-signal)]">{t("scan.orEnterManually")}</span>
+        <span className="h-px flex-1 bg-[var(--ft-ink)]" />
       </div>
 
       {/* Manual barcode entry */}
-      <GlassCard className="p-6 mb-4 animate-fade-in-up stagger-3" hover={false}>
-        <div className="flex items-center gap-2 mb-4">
-          <Hash className="w-4 h-4 text-frost-500" />
-          <h3 className="font-bold text-slate-800">Enter barcode manually</h3>
+      <div className="mb-4 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-6 animate-fade-in-up stagger-3">
+        <div className="mb-4 flex items-center gap-2">
+          <Hash className="h-4 w-4 text-[var(--ft-pickle)]" strokeWidth={2} />
+          <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--ft-ink)]">{t("scan.typeBarcode")}</h3>
         </div>
         <ManualBarcodeEntry onSubmit={(code) => { setScannedCode(code); lookupProduct(code); }} />
-        <div className="border-t border-white/30 mt-5 pt-4">
-          <button type="button" onClick={() => { setScannedCode(null); setProductName(null); setShowAddForm(true); }} className="flex items-center gap-1.5 text-sm text-frost-600 hover:text-frost-800 font-semibold transition-colors group">
-            Skip scanning — add item manually <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+        <div className="mt-5 border-t border-dashed border-[rgba(21,19,15,0.30)] pt-4">
+          <button type="button" onClick={() => { setScannedCode(null); setProductName(null); setShowAddForm(true); }}
+            className="group inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ft-ink)] underline decoration-[var(--ft-pickle)] underline-offset-4 transition-colors hover:text-[var(--ft-signal)] hover:decoration-[var(--ft-signal)]">
+            {t("scan.skipManual")}
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
           </button>
         </div>
-      </GlassCard>
+      </div>
 
-      <Modal isOpen={showAddForm} onClose={resetScan} title={scannedCode ? "Add Scanned Item" : "Add Item Manually"} subtitle={scannedCode ? `Barcode: ${scannedCode}` : undefined} size="lg">
+      <Modal isOpen={showAddForm} onClose={resetScan} title={scannedCode ? t("scan.addScannedItem") : t("scan.addItemManually")} subtitle={scannedCode ? `${t("scan.barcodePrefix")}: ${scannedCode}` : undefined} size="lg">
         <AddItemForm
           existingItems={items}
-          onSubmit={async (item) => { try { await addItem(item); resetScan(); stopCamera(); toast(`${item.name} added!`, "success"); } catch (err) { toast(err instanceof Error ? err.message : "Failed to add item", "error"); } }}
+          onSubmit={async (item) => { try { await addItem(item); resetScan(); stopCamera(); toast(`${item.name} added!`, "success"); } catch (err) { toast(err instanceof Error ? err.message : t("scan.toastFailedAdd"), "error"); } }}
           onCancel={resetScan}
           initialBarcode={scannedCode || undefined}
           initialName={productName || undefined}

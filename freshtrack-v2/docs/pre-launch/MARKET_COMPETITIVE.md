@@ -13,7 +13,7 @@ Legend: **TS** = table stakes in category · **DF** = differentiator for FreshTr
 
 | Product / type | Inventory & expiry | Waste / sustainability | Prices & deals | Recipes / meal planning | Household / sync | Native / PWA | Notes |
 |----------------|-------------------|------------------------|----------------|-------------------------|------------------|--------------|-------|
-| **FreshTrack (this app)** | DF: fridge/freezer/pantry, categories | DF: waste logs + stats | DF: Kassalapp (shopping + deals UI) | DF: local match + optional AI (Anthropic) | DF: household + invite | Web (TanStack Start on Workers) | **DF** = intended strength |
+| **FreshTrack (this app)** | DF: fridge/freezer/pantry, categories | DF: waste logs + stats | DF: Kassalapp (shopping + deals UI) | DF: local match + optional AI (Anthropic) | DF: household + invite | Web (TanStack Start on Vercel) | **DF** = intended strength |
 | **Kassalapp** (NO) | TS: product search | N1 | **TS** in Norway: barcode, price history, alerts, store map | N1 | Shopping list / cheapest basket | Native apps | **Partner/API** — feature-rich standalone; FreshTrack **does not** replicate receipt scan, bank sync, loyalty |
 | **Mattilbud / retailer flyers** (NO) | N1 | N1 | TS: weekly offers | N1 | N1 | Apps | FreshTrack focuses on **your list + inventory**, not flyer browsing as primary UX |
 | **Retailer apps** (Rema 1000, Kiwi, Coop, etc.) | N1 | Sometimes coupons | TS: their own prices | Sometimes | Limited | Native | Trust and **chain-specific**; FreshTrack is **retailer-agnostic** comparison via Kassalapp |
@@ -52,7 +52,7 @@ Legend: **TS** = table stakes in category · **DF** = differentiator for FreshTr
 |-------------|------|
 | **Anthropic** (AI recipes) | Usage scales with “Suggest AI” taps — cap or cache (you already cache ~30 min client-side). |
 | **Kassalapp API** | Rate limits in code — monitor 429s and user-visible errors. |
-| **Cloudflare Workers + D1** | Usually fine at small scale; watch DB size and read/write patterns on `fetchAllPrices`. |
+| **Vercel + Turso/libSQL** | Usually fine at small scale; watch DB growth, query patterns, and API burst behavior on `fetchAllPrices`. |
 
 ---
 
@@ -62,7 +62,7 @@ Legend: **TS** = table stakes in category · **DF** = differentiator for FreshTr
 2. Cut **food waste** with logging and trends your household can act on.  
 3. **Compare prices** on the items you actually plan to buy (Norway), tied to your shopping list.  
 4. Cook from what you have — **classic** recipe matches plus **optional AI** suggestions.  
-5. **Household sharing** with one source of truth on Cloudflare — no spreadsheet chaos.
+5. **Household sharing** with one source of truth on Vercel + Turso — no spreadsheet chaos.
 
 ---
 

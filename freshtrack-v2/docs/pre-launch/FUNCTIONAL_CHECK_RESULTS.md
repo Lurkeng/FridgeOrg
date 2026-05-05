@@ -1,7 +1,7 @@
 # P0 / P1 functional and NFR check results
 
-**Environment:** Static review + `npm run verify` in repo (2026-04-25).  
-**Production deploy smoke:** Not run (no production URL or credentials in this session). Re-run matrix on your deployed Worker URL before launch.
+**Environment:** Static review + `npm run typecheck && npm run build && npm run test:e2e` in `freshtrack-v2` (2026-04-30).
+**Production deploy smoke:** Not run (no production URL or credentials in this session). Re-run matrix on the deployed Vercel URL before launch.
 
 ---
 
@@ -15,11 +15,11 @@
 | Household data isolation — food item mutations | **Pass** | Food item mutations are scoped to `householdId` after resolving the authenticated user’s household context. |
 | Household data isolation — shopping list mutations | **Pass** | Shopping list and deal selection mutations are scoped to `householdId` (including `fetchItemPrices` and `selectDealForItem`). |
 | `getFoodItems` scoping | **Pass** | Filters by `householdId` from membership. |
-| Manual: sign-up / sign-in / household | **Not run** | Requires browser + D1. |
+| Manual: sign-up / sign-in / household | **Not run** | Requires browser + configured Turso database. |
 | Manual: two-user household | **Not run** | |
 | Manual: barcode scan mobile | **Not run** | |
-| Manual: shopping + deals tabs | **Not run** | |
-| Deploy smoke on production URL | **Not run** | Run P0 matrix after `wrangler deploy`. |
+| Manual: shopping + deals tabs | **Not run** | Include Store mode, Paste List, Put Away, and per-item destination controls. |
+| Deploy smoke on production URL | **Not run** | Run P0 matrix after Vercel deploy. |
 
 ---
 
@@ -31,20 +31,22 @@
 | AI recipes with key | **Not run** | Needs `ANTHROPIC_API_KEY` in env. |
 | Waste charts empty / full | **Not run** | |
 | Settings persistence | **Not run** | |
+| Expiry reminder settings | **Pass (code + build)** | Preferences, preview server function, settings form, and dashboard preview added. Manual authenticated save still required. |
+| Grocery insights | **Pass (code + build)** | Purchase history summary now powers dashboard cards and shopping recap. |
 | Secrets in client bundle | **Pass (spot)** | API keys referenced via `context.env` in server handlers, not `import.meta.env` for Anthropic in client. |
 | IDOR beyond food items | **Pass (spot)** | Reviewed shopping/deals endpoints now scope by `householdId`, including `fetchItemPrices` and `selectDealForItem`. |
-| Lighthouse / LCP | **Not run** | Run on `/` and `/deals`. |
-| Accessibility | **Not run** | Keyboard, modals, contrast. |
-| Offline / PWA | **N/A** | No service worker in app source; expect online-only. Sidebar “Live Sync” implies real-time — data is request/refresh based unless you add subscriptions. |
+| Lighthouse / LCP | **Pass with perf follow-up** | Local Lighthouse on Vite dev server: `/`, `/shopping`, `/deals`, `/recipes` all scored Performance 55, Accessibility 100, Best Practices 100, SEO 100. Re-run against production before launch. |
+| Accessibility | **Not run** | Keyboard, modals, contrast, Store mode, Paste List, and Put Away. |
+| Offline / PWA | **Partial** | Manifest, icons, install metadata, and offline banner added. No service worker/offline writes yet. |
 
 ---
 
 ## Sidebar copy vs behavior
 
-- **“Live Sync” / D1:** Data persists on server; updates appear after refetch, not WebSocket real-time. Consider softer copy (“Cloud sync”) unless you add realtime.
+- **Server persistence:** Data persists in Turso via server APIs; updates appear after refetch, not WebSocket real-time.
 
 ---
 
 ## Schema vs product
 
-- **`notification_preferences`** exists in [`schema.ts`](../src/db/schema.ts) but has **no** server routes or UI hooks found — notifications are a **market gap**, not a hidden feature.
+- **`notification_preferences`** now has server functions, settings UI, and dashboard preview. Email / push delivery remains deliberately deferred until provider and production env are chosen.

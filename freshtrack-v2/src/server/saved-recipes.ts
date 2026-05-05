@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { authMiddleware } from "@/middleware/auth";
 import { getUserHouseholdId } from "@/server/household-context";
+import { requireHouseholdId } from "@/server/guards";
 import type { RecipeMacros, SavedRecipe } from "@/types";
 
 const recipeInputSchema = z.object({
@@ -59,10 +60,17 @@ export const getSavedRecipes = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const db = getDb();
+    const householdId = await getUserHouseholdId(db, context.userId);
+    if (!householdId) return [];
     const rows = await db
       .select()
       .from(schema.savedRecipes)
-      .where(eq(schema.savedRecipes.userId, context.userId));
+      .where(
+        and(
+          eq(schema.savedRecipes.userId, context.userId),
+          eq(schema.savedRecipes.householdId, householdId),
+        ),
+      );
 
     return rows.map(rowToSavedRecipe);
   });
@@ -72,7 +80,7 @@ export const saveRecipe = createServerFn({ method: "POST" })
   .inputValidator(saveRecipeSchema)
   .handler(async ({ context, data }) => {
     const db = getDb();
-    const householdId = await getUserHouseholdId(db, context.userId);
+    const householdId = requireHouseholdId(await getUserHouseholdId(db, context.userId));
     const now = new Date().toISOString();
 
     const [inserted] = await db
@@ -102,12 +110,14 @@ export const deleteSavedRecipe = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ context, data }) => {
     const db = getDb();
+    const householdId = requireHouseholdId(await getUserHouseholdId(db, context.userId));
     await db
       .delete(schema.savedRecipes)
       .where(
         and(
           eq(schema.savedRecipes.id, data.id),
           eq(schema.savedRecipes.userId, context.userId),
+          eq(schema.savedRecipes.householdId, householdId),
         ),
       );
 

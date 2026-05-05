@@ -1,20 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useShoppingList } from "@/hooks/useShoppingList";
 import { useRestockSuggestions } from "@/hooks/useRestockSuggestions";
 import { useRestockPredictions } from "@/hooks/useRestockPredictions";
+import { usePurchaseHistorySummary } from "@/hooks/usePurchaseHistorySummary";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Modal } from "@/components/ui/Modal";
 import GlassCard from "@/components/ui/GlassCard";
+import { Button } from "@/components/ui/Button";
+import { PageSection } from "@/components/ui/PageSection";
 import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { cn, getCategoryEmoji, formatRelativeDate } from "@/lib/utils";
-import type { FoodCategory, ShoppingListItem, StorePriceEntry } from "@/types";
+import { getDefaultLocation, getDefaultShelfLife } from "@/lib/shelf-life";
+import { parseShoppingListText, type ParsedShoppingListItem } from "@/features/shopping";
+import { useAppPreferences } from "@/lib/app-preferences";
+import type { FoodCategory, PutAwayItemOverride, ShoppingListItem, StorePriceEntry, StorageLocation } from "@/types";
 import {
   ShoppingCart, Plus, Trash2, Check, ChevronDown,
   Tag, RefreshCw, X, Store, RotateCcw, AlertTriangle,
-  Calendar, Gift, TrendingUp, Clock, ArrowDownUp,
+  Calendar, Gift, TrendingUp, Clock, ArrowDownUp, Refrigerator, Snowflake, Archive,
 } from "lucide-react";
 import {
   getInSeasonNow,
@@ -162,27 +168,60 @@ const categories: { value: FoodCategory; label: string }[] = CATEGORY_ORDER.map(
 const units = ["item","lb","oz","kg","g","L","mL","cup","pack","bottle","can","bag","box","dozen"];
 
 const baseInput =
-  "w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 " +
-  "transition-all duration-200 outline-none " +
-  "focus:ring-2 focus:ring-frost-400/50 focus:bg-white/80 hover:bg-white/75";
+  "w-full border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-3.5 py-2.5 text-sm text-[var(--ft-ink)] placeholder:text-[rgba(21,19,15,0.4)] " +
+  "outline-none transition-all duration-150 font-sans " +
+  "focus:shadow-[3px_3px_0_var(--ft-pickle)] focus:-translate-y-px";
+
+// ── Editorial form field helper ─────────────────────────────────────────────
+function FormField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-ink)]">{label}</span>
+        {hint && <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.5)]">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 // ── Main page ────────────────────────────────────────────────────────────
 
 function ShoppingPage() {
   const {
+    lists, activeListId, setActiveList, createList, renameList, deleteList, setDefaultList,
     uncheckedItems, checkedItems, byCategory, estimatedTotal,
-    isLoading, addItem, toggleItem, deleteItem, clearChecked,
+    isLoading, addItem, toggleItem, deleteItem, clearChecked, putAwayItems, undoPutAway,
     fetchPrices, fetchAllPrices, isFetchingPrices,
   } = useShoppingList();
-  const { recentItems, expiringItems } = useRestockSuggestions();
-  const { predictions } = useRestockPredictions();
+  const { recentItems, expiringItems } = useRestockSuggestions(activeListId);
+  const { predictions } = useRestockPredictions(activeListId);
+  const { summary } = usePurchaseHistorySummary();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useAppPreferences();
+  const checkedItemsSignature = useMemo(
+    () => checkedItems.map((item) => `${item.id}:${item.name}:${item.category}:${item.notes ?? ""}`).join("|"),
+    [checkedItems],
+  );
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPutAwayModal, setShowPutAwayModal] = useState(false);
+  const [showNewListModal, setShowNewListModal] = useState(false);
+  const [showPasteListModal, setShowPasteListModal] = useState(false);
+  const [storeMode, setStoreMode] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("freshtrack-store-mode") === "true";
+    return false;
+  });
   const quickAddRef = useRef<HTMLInputElement>(null);
   const [quickAddText, setQuickAddText] = useState("");
   const [pricingItemId, setPricingItemId] = useState<string | null>(null);
+  const [newListName, setNewListName] = useState("");
+  const [defaultPutAwayLocation, setDefaultPutAwayLocation] = useState<StorageLocation>("fridge");
+  const [putAwayOverrides, setPutAwayOverrides] = useState<Record<string, PutAwayItemOverride>>({});
+  const [lastPutAwayBatchId, setLastPutAwayBatchId] = useState<string | null>(null);
+  const [pasteListText, setPasteListText] = useState("");
+  const [parsedPasteItems, setParsedPasteItems] = useState<ParsedShoppingListItem[]>([]);
 
   // Sort mode — persisted in localStorage
   const [sortMode, setSortMode] = useState<SortMode>(() => {
@@ -194,6 +233,29 @@ function ShoppingPage() {
   useEffect(() => {
     localStorage.setItem("freshtrack-sort-mode", sortMode);
   }, [sortMode]);
+  useEffect(() => {
+    localStorage.setItem("freshtrack-store-mode", String(storeMode));
+    if (storeMode) setSortMode("store");
+  }, [storeMode]);
+
+  useEffect(() => {
+    if (!showPutAwayModal) return;
+    setPutAwayOverrides((current) => {
+      const next: Record<string, PutAwayItemOverride> = {};
+      for (const item of checkedItems) {
+        const location = current[item.id]?.location ?? getDefaultLocation(item.category);
+        const days = getDefaultShelfLife(item.name, item.category, location);
+        next[item.id] = {
+          id: item.id,
+          location,
+          expiryDate: current[item.id]?.expiryDate ?? new Date(Date.now() + days * 86_400_000).toISOString().split("T")[0],
+          shelf: current[item.id]?.shelf ?? null,
+          notes: current[item.id]?.notes ?? item.notes ?? null,
+        };
+      }
+      return next;
+    });
+  }, [checkedItemsSignature, showPutAwayModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Modal form state
   const [name, setName]         = useState("");
@@ -249,6 +311,31 @@ function ShoppingPage() {
     }
   };
 
+  const handlePreviewPasteList = () => {
+    setParsedPasteItems(parseShoppingListText(pasteListText));
+  };
+
+  const handleImportPasteList = async () => {
+    if (!parsedPasteItems.length) return;
+    try {
+      for (const item of parsedPasteItems) {
+        await addItem({
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit,
+          notes: null,
+        });
+      }
+      toast(`${parsedPasteItems.length} item${parsedPasteItems.length !== 1 ? "s" : ""} imported`, "success");
+      setShowPasteListModal(false);
+      setPasteListText("");
+      setParsedPasteItems([]);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to import list", "error");
+    }
+  };
+
   const handleToggle = async (item: ShoppingListItem) => {
     try {
       await toggleItem(item.id, !item.checked);
@@ -272,6 +359,100 @@ function ShoppingPage() {
       toast("Checked items cleared", "success");
     } catch {
       toast("Failed to clear items", "error");
+    }
+  };
+
+  const handleCreateList = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newListName.trim()) return;
+    try {
+      const list = await createList(newListName.trim());
+      setActiveList(list.id);
+      setShowNewListModal(false);
+      setNewListName("");
+      toast(`Created list: ${list.name}`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to create list", "error");
+    }
+  };
+
+  const handleRenameActiveList = async () => {
+    if (!activeListId) return;
+    const list = lists.find((l) => l.id === activeListId);
+    if (!list) return;
+    const nextName = window.prompt("Rename list", list.name);
+    if (!nextName || !nextName.trim() || nextName.trim() === list.name) return;
+    try {
+      await renameList(activeListId, nextName.trim());
+      toast("List renamed", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to rename list", "error");
+    }
+  };
+
+  const handleDeleteActiveList = async () => {
+    if (!activeListId) return;
+    const list = lists.find((l) => l.id === activeListId);
+    if (!list || list.is_default) return;
+    if (!window.confirm(`Delete list "${list.name}"? Items will move to the default list.`)) return;
+    try {
+      await deleteList(activeListId);
+      toast("List deleted", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to delete list", "error");
+    }
+  };
+
+  const handleSetDefaultList = async () => {
+    if (!activeListId) return;
+    try {
+      await setDefaultList(activeListId);
+      toast("Set as default list", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to set default list", "error");
+    }
+  };
+
+  const handlePutAwayChecked = async () => {
+    if (!checkedItems.length) return;
+    try {
+      const result = await putAwayItems({
+        itemIds: checkedItems.map((item) => item.id),
+        defaultLocation: defaultPutAwayLocation,
+        itemOverrides: checkedItems.map((item) => putAwayOverrides[item.id]).filter(Boolean),
+      });
+      setShowPutAwayModal(false);
+      setLastPutAwayBatchId(result.batchId ?? null);
+      toast(`${result.imported} item${result.imported !== 1 ? "s" : ""} moved to inventory and saved to history`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to put away items", "error");
+    }
+  };
+
+  const handleApplyDestinationToAll = (location: StorageLocation) => {
+    setDefaultPutAwayLocation(location);
+    setPutAwayOverrides((current) => {
+      const next = { ...current };
+      for (const item of checkedItems) {
+        const days = getDefaultShelfLife(item.name, item.category, location);
+        next[item.id] = {
+          ...(next[item.id] ?? { id: item.id }),
+          location,
+          expiryDate: new Date(Date.now() + days * 86_400_000).toISOString().split("T")[0],
+        };
+      }
+      return next;
+    });
+  };
+
+  const handleUndoPutAway = async () => {
+    if (!lastPutAwayBatchId) return;
+    try {
+      const result = await undoPutAway(lastPutAwayBatchId);
+      setLastPutAwayBatchId(null);
+      toast(`Restored ${result.restored} item${result.restored !== 1 ? "s" : ""} to the shopping list`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to undo put-away", "error");
     }
   };
 
@@ -310,7 +491,7 @@ function ShoppingPage() {
         notes: null,
       });
       // Refresh suggestions so the added item disappears from the list
-      queryClient.invalidateQueries({ queryKey: ["restockSuggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["restockSuggestions", activeListId] });
       toast(`${name} added to list`, "success");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to add item", "error");
@@ -326,7 +507,7 @@ function ShoppingPage() {
         unit: "stk",
         notes: null,
       });
-      queryClient.invalidateQueries({ queryKey: ["restock-predictions"] });
+      queryClient.invalidateQueries({ queryKey: ["restock-predictions", activeListId] });
       toast(`${name} added to list`, "success");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to add item", "error");
@@ -344,61 +525,147 @@ function ShoppingPage() {
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <PageHeader
-        title="Shopping List"
-        subtitle={`${totalItems} item${totalItems !== 1 ? "s" : ""} \u00B7 ${uncheckedItems.length} remaining`}
-        icon={<ShoppingCart className="w-5 h-5 text-frost-600" />}
+        eyebrow="Section \u00B7 Shopping Desk"
+        title={t("shopping.title")}
+        subtitle={`${totalItems} ${t("shopping.items")} \u00B7 ${uncheckedItems.length} ${t("shopping.remaining")}`}
+        icon={<ShoppingCart className="w-5 h-5 text-[var(--ft-pickle)]" />}
         actions={
           <div className="flex items-center gap-2">
             {uncheckedItems.length > 0 && (
               <button
                 onClick={handleFetchPrices}
                 disabled={isFetchingPrices}
-                className="inline-flex items-center gap-2 px-4 py-2.5 glass rounded-xl text-sm font-semibold text-frost-700 hover:bg-frost-50/80 transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)] transition-all duration-150 disabled:opacity-50"
               >
                 <RefreshCw className={cn("w-4 h-4", isFetchingPrices && "animate-spin")} />
-                {isFetchingPrices ? "Checking\u2026" : "Cheapest overall"}
+                {isFetchingPrices ? t("shopping.checking") : t("shopping.cheapestOverall")}
               </button>
             )}
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.97]"
+            <Button
+              onClick={() => setShowPasteListModal(true)}
+              variant="secondary"
+              icon={<Plus className="w-4 h-4" />}
+              className={cn(storeMode && "hidden")}
             >
-              <Plus className="w-4 h-4" /> Add Item
-            </button>
+              {t("shopping.pasteList")}
+            </Button>
+            <Button
+              onClick={() => setShowAddModal(true)}
+              variant="primary"
+              icon={<Plus className="w-4 h-4" />}
+            >
+              {t("shopping.addItem")}
+            </Button>
           </div>
         }
       />
 
-      {/* Price summary banner */}
+      {/* List selector toolbar */}
+      <div className={cn("relative border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-3 mb-4 animate-fade-in-up stagger-1", storeMode && "hidden")}>
+        <span aria-hidden className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-[var(--ft-pickle)]" />
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-pickle)] mr-2">List ·</span>
+          <select
+            value={activeListId ?? ""}
+            onChange={(e) => setActiveList(e.target.value)}
+            className="border border-[var(--ft-ink)] bg-[var(--ft-bone)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--ft-ink)] outline-none focus:shadow-[2px_2px_0_var(--ft-pickle)]"
+          >
+            {lists.map((list) => (
+              <option key={list.id} value={list.id}>
+                {list.name}{list.is_default ? " (default)" : ""}
+              </option>
+            ))}
+          </select>
+          <Button size="sm" variant="secondary" onClick={() => setShowNewListModal(true)}>{t("shopping.newList")}</Button>
+          <Button size="sm" variant="ghost" onClick={handleRenameActiveList}>{t("shopping.rename")}</Button>
+          <Button size="sm" variant="ghost" onClick={handleSetDefaultList}>{t("shopping.setDefault")}</Button>
+          <Button size="sm" variant="ghost" onClick={handleDeleteActiveList}>{t("shopping.delete")}</Button>
+        </div>
+      </div>
+
+      {/* Grocery recap — editorial 4-up ledger */}
+      <div className={cn("relative border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-4 mb-6 animate-fade-in-up stagger-1", storeMode && "hidden")}>
+        <span aria-hidden className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-[var(--ft-ink)]" />
+        <div className="flex items-baseline justify-between mb-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-pickle)]">Recap · {t("shopping.groceryRecap")}</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.5)]">Last 30 days</p>
+        </div>
+        <div className="grid sm:grid-cols-4 border border-[var(--ft-ink)] bg-[var(--ft-bone)] divide-x divide-[var(--ft-ink)]">
+          {[
+            { label: t("shopping.boughtThisMonth"),    big: true,  primary: String(summary.monthItemsBought) },
+            { label: t("shopping.mostBoughtCategory"), big: false, primary: summary.mostBoughtCategory ?? "—" },
+            { label: t("shopping.estimatedSpend"),     big: true,  primary: summary.estimatedSpend.toFixed(0), suffix: "kr" },
+            { label: t("shopping.topRepeatedItem"),    big: false, primary: summary.topRepeatedItem ?? "—" },
+          ].map((stat, i) => (
+            <div key={i} className="px-3 py-3">
+              <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[rgba(21,19,15,0.55)] mb-1.5">{stat.label}</p>
+              {stat.big ? (
+                <p className="font-display text-2xl text-[var(--ft-ink)] leading-none">
+                  {stat.primary}
+                  {stat.suffix && <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-pickle)] ml-1">{stat.suffix}</span>}
+                </p>
+              ) : (
+                <p className="font-display text-base text-[var(--ft-ink)] leading-tight">{stat.primary}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Price summary banner — pickle-accent ledger */}
       {estimatedTotal > 0 && (
-        <div className="glass-frost rounded-2xl p-4 mb-6 flex items-center justify-between animate-fade-in-up stagger-1">
-          <div className="flex items-center gap-2">
-            <Tag className="w-4 h-4 text-frost-600" />
-            <span className="text-sm font-semibold text-slate-700">Estimated total (cheapest prices)</span>
+        <div className="relative border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-4 mb-6 flex items-center justify-between animate-fade-in-up stagger-1 shadow-[3px_3px_0_var(--ft-pickle)]">
+          <span aria-hidden className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-[var(--ft-pickle)]" />
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 border border-[var(--ft-ink)] bg-[rgba(183,193,103,0.18)] flex items-center justify-center">
+              <Tag className="w-4 h-4 text-[var(--ft-pickle)]" />
+            </div>
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[rgba(21,19,15,0.55)]">Ledger · cheapest combo</p>
+              <p className="font-display text-lg text-[var(--ft-ink)] leading-none">Estimated basket total</p>
+            </div>
           </div>
-          <span className="text-lg font-bold text-frost-700">{estimatedTotal.toFixed(0)} kr</span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-3xl text-[var(--ft-ink)] leading-none">{estimatedTotal.toFixed(0)}</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-pickle)]">kr</span>
+          </div>
         </div>
       )}
 
-      {/* Quick-add bar */}
+      {/* Put-away undo banner */}
+      {lastPutAwayBatchId && (
+        <div className="relative mb-6 flex flex-wrap items-center justify-between gap-3 border border-[var(--ft-pickle)] bg-[rgba(183,193,103,0.12)] p-4 animate-fade-in-up">
+          <span aria-hidden className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-[var(--ft-pickle)]" />
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ft-pickle)]">Put-away · filed</p>
+            <p className="font-display text-lg text-[var(--ft-ink)] leading-tight">Items moved to inventory.</p>
+          </div>
+          <Button type="button" size="sm" variant="secondary" onClick={handleUndoPutAway}>
+            Reverse it
+          </Button>
+        </div>
+      )}
+
+      {/* Quick-add bar — sharp ink-bordered with pickle add button */}
       {!showAddModal && (
-        <div className="glass rounded-2xl px-4 py-3 mb-6 flex items-center gap-3 animate-fade-in-up stagger-2">
+        <div className="sticky top-3 z-20 mb-6 flex items-center gap-3 border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-4 py-3 shadow-[3px_3px_0_var(--ft-ink)] animate-fade-in-up stagger-2 md:static md:shadow-none">
+          <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-pickle)] shrink-0">Add ·</span>
           <input
             ref={quickAddRef}
             type="text"
             value={quickAddText}
             onChange={(e) => setQuickAddText(e.target.value)}
             onKeyDown={handleQuickAdd}
-            placeholder="Type item name and press Enter"
-            className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none min-w-0"
+            placeholder={t("shopping.quickAddPlaceholder")}
+            className="flex-1 bg-transparent text-sm text-[var(--ft-ink)] placeholder:text-[rgba(21,19,15,0.4)] outline-none min-w-0 font-sans"
           />
           {quickAddText && (
             <button
               onClick={() => setQuickAddText("")}
-              className="w-6 h-6 rounded-full bg-slate-200/70 hover:bg-slate-300/70 flex items-center justify-center transition-colors flex-shrink-0"
+              className="h-6 w-6 border border-[var(--ft-ink)] bg-[var(--ft-bone)] hover:bg-[var(--ft-ink)] hover:text-[var(--ft-bone)] flex items-center justify-center transition-colors flex-shrink-0"
               aria-label="Clear"
             >
-              <X className="w-3 h-3 text-slate-500" />
+              <X className="w-3 h-3" />
             </button>
           )}
           <button
@@ -409,45 +676,63 @@ function ShoppingPage() {
                 quickAddRef.current?.focus();
               }
             }}
-            className="w-9 h-9 rounded-xl bg-gradient-to-br from-frost-500 to-frost-600 flex items-center justify-center text-white shadow-sm hover:shadow-glow-frost transition-all active:scale-95 flex-shrink-0"
+            className="h-9 w-9 border border-[var(--ft-ink)] bg-[var(--ft-ink)] flex items-center justify-center text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all duration-150 flex-shrink-0"
+            aria-label="Add"
           >
             <Plus className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Sort mode toggle */}
+      {/* Store mode toggle */}
+      <div className="relative mb-4 flex items-center justify-between gap-3 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-3 animate-fade-in-up stagger-2">
+        <span aria-hidden className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-[var(--ft-ink)]" />
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ft-pickle)]">Mode · in-store</p>
+          <p className="font-display text-base text-[var(--ft-ink)] leading-tight">{t("shopping.storeMode")}</p>
+          <p className="font-sans text-xs text-[rgba(21,19,15,0.6)] mt-0.5">{t("shopping.storeModeDesc")}</p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant={storeMode ? "primary" : "secondary"}
+          icon={<Store className="w-3.5 h-3.5" />}
+          onClick={() => setStoreMode((value) => !value)}
+          className="min-h-11"
+        >
+          {storeMode ? t("shopping.on") : t("shopping.off")}
+        </Button>
+      </div>
+
+      {/* Sort mode toggle — segmented editorial */}
       {uncheckedItems.length > 1 && (
-        <div className="flex items-center justify-between mb-4 animate-fade-in-up stagger-2">
-          <div className="flex gap-1 glass rounded-xl p-1">
-            <button
-              onClick={() => setSortMode("category")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
-                sortMode === "category"
-                  ? "glass-heavy text-slate-800 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-white/30",
-              )}
-            >
-              <ArrowDownUp className="w-3 h-3" />
-              Category
-            </button>
-            <button
-              onClick={() => setSortMode("store")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
-                sortMode === "store"
-                  ? "glass-heavy text-slate-800 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-white/30",
-              )}
-            >
-              <Store className="w-3 h-3" />
-              Store Layout
-            </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 animate-fade-in-up stagger-2">
+          <div className="flex border border-[var(--ft-ink)] bg-[var(--ft-paper)] divide-x divide-[var(--ft-ink)]">
+            {([
+              { mode: "category" as const, icon: ArrowDownUp, label: t("shopping.category") },
+              { mode: "store"    as const, icon: Store,       label: t("shopping.storeLayout") },
+            ]).map(({ mode, icon: Icon, label }) => {
+              const active = sortMode === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setSortMode(mode)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors duration-150",
+                    active
+                      ? "bg-[var(--ft-ink)] text-[var(--ft-bone)]"
+                      : "text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)]",
+                  )}
+                >
+                  <Icon className="w-3 h-3" />
+                  {label}
+                </button>
+              );
+            })}
           </div>
           {sortMode === "store" && (
-            <span className="text-[10px] text-slate-400 font-medium animate-fade-in">
-              Sorted by aisle order
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ft-pickle)] animate-fade-in">
+              ↳ {t("shopping.sortedByAisle")}
             </span>
           )}
         </div>
@@ -458,17 +743,17 @@ function ShoppingPage() {
         <div className="space-y-5 animate-fade-in-up stagger-2">
           {sortedCategories.map((cat, catIndex) => (
             <div key={cat}>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-baseline gap-2 mb-3 border-b border-[var(--ft-ink)] pb-1.5">
                 {sortMode === "store" && (
-                  <span className="w-5 h-5 rounded-full bg-frost-100 text-frost-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                    {catIndex + 1}
+                  <span className="h-5 w-5 border border-[var(--ft-ink)] bg-[var(--ft-pickle)] font-mono text-[10px] text-[var(--ft-ink)] flex items-center justify-center flex-shrink-0 tracking-[0.04em]">
+                    {String(catIndex + 1).padStart(2, "0")}
                   </span>
                 )}
-                <span className="text-lg">{getCategoryEmoji(cat)}</span>
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                <span className="text-lg self-center">{getCategoryEmoji(cat)}</span>
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-ink)]">
                   {sortMode === "store" ? STORE_AISLE_LABELS[cat] : CATEGORY_LABELS[cat]}
                 </h3>
-                <span className="text-xs text-slate-400">({byCategory[cat].length})</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ft-pickle)] ml-auto">{byCategory[cat].length} item{byCategory[cat].length !== 1 ? "s" : ""}</span>
               </div>
               <div className="space-y-2">
                 {byCategory[cat].map((item) => (
@@ -486,34 +771,48 @@ function ShoppingPage() {
           ))}
         </div>
       ) : uncheckedItems.length === 0 && checkedItems.length === 0 ? (
-        <GlassCard className="text-center py-16 px-8 animate-scale-in" hover={false}>
-          <div className="text-6xl mb-5 animate-float inline-block">&#x1F6D2;</div>
-          <h3 className="font-bold text-slate-800 text-lg mb-2">Your shopping list is empty</h3>
-          <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
-            Add items or let FreshTrack suggest restocks from your inventory.
+        <article className="relative border border-[var(--ft-ink)] bg-[var(--ft-paper)] text-center py-14 px-8 animate-scale-in">
+          <span aria-hidden className="absolute top-3 left-3 h-3 w-3 border-l border-t border-[var(--ft-ink)]" />
+          <span aria-hidden className="absolute top-3 right-3 h-3 w-3 border-r border-t border-[var(--ft-ink)]" />
+          <span aria-hidden className="absolute bottom-3 left-3 h-3 w-3 border-l border-b border-[var(--ft-ink)]" />
+          <span aria-hidden className="absolute bottom-3 right-3 h-3 w-3 border-r border-b border-[var(--ft-ink)]" />
+          <div className="text-5xl mb-4 inline-block">&#x1F6D2;</div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)] mb-2">List · empty</p>
+          <h3 className="font-display text-2xl text-[var(--ft-ink)] mb-2 leading-tight">{t("shopping.emptyTitle")}</h3>
+          <p className="font-sans text-sm text-[rgba(21,19,15,0.65)] max-w-sm mx-auto mb-6">
+            {t("shopping.emptyDescription")}
           </p>
-          <button
+          <Button
             onClick={() => quickAddRef.current?.focus()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.97]"
+            variant="primary"
+            icon={<Plus className="w-4 h-4" />}
           >
-            <Plus className="w-4 h-4" /> Add First Item
-          </button>
-        </GlassCard>
+            {t("shopping.addFirstItem")}
+          </Button>
+        </article>
       ) : null}
 
       {/* Checked items */}
-      {checkedItems.length > 0 && (
-        <div className="mt-8 animate-fade-in-up">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-              Checked ({checkedItems.length})
-            </h3>
-            <button
-              onClick={handleClearChecked}
-              className="text-xs font-semibold text-danger-500 hover:text-danger-700 transition-colors flex items-center gap-1"
-            >
-              <Trash2 className="w-3 h-3" /> Clear all
-            </button>
+      {checkedItems.length > 0 && !storeMode && (
+        <PageSection>
+          <div className="flex items-baseline justify-between mb-3 border-b border-[var(--ft-ink)] pb-2">
+            <div className="flex items-baseline gap-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)]">Plate · cleared</span>
+              <h3 className="font-display text-lg text-[var(--ft-ink)] leading-none">
+                {t("shopping.checked")} <span className="font-mono text-[10px] tracking-[0.18em] text-[rgba(21,19,15,0.5)]">· {checkedItems.length}</span>
+              </h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" variant="primary" onClick={() => setShowPutAwayModal(true)}>
+                {t("shopping.putAwayBought")}
+              </Button>
+              <button
+                onClick={handleClearChecked}
+                className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-signal)] underline underline-offset-4 decoration-[var(--ft-signal)] hover:no-underline transition-all flex items-center gap-1"
+              >
+                <Trash2 className="w-3 h-3" /> {t("shopping.clearAll")}
+              </button>
+            </div>
           </div>
           <div className="space-y-1.5 opacity-60">
             {checkedItems.map((item) => (
@@ -527,77 +826,82 @@ function ShoppingPage() {
               />
             ))}
           </div>
-        </div>
+        </PageSection>
       )}
 
       {/* Smart Restock — purchase pattern predictions */}
-      {predictions.length > 0 && (
-        <div className="mt-8 animate-fade-in-up">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-indigo-500" />
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Smart Restock
-            </h3>
+      {predictions.length > 0 && !storeMode && (
+        <PageSection>
+          <div className="flex items-baseline gap-3 mb-3 border-b border-[var(--ft-ink)] pb-2">
+            <TrendingUp className="w-4 h-4 text-[var(--ft-pickle)] self-center" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)]">Forecast</span>
+            <h3 className="font-display text-lg text-[var(--ft-ink)] leading-none">{t("shopping.smartRestock")}</h3>
           </div>
           <div className="space-y-2">
-            {predictions.map((prediction) => (
-              <div
-                key={`prediction-${prediction.name}`}
-                className="glass rounded-xl px-4 py-3 flex items-center gap-3 border border-indigo-200/40 bg-indigo-50/20 hover:bg-indigo-50/40 transition-all"
-              >
-                <span className="text-lg">{getCategoryEmoji(prediction.category as FoodCategory)}</span>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-slate-800 capitalize">{prediction.name}</span>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="inline-flex items-center gap-1 text-[10px] text-indigo-600 font-medium">
-                      <Clock className="w-3 h-3" />
-                      Every ~{prediction.averageIntervalDays}d
-                    </span>
-                    {prediction.daysUntilNeeded < 0 ? (
-                      <span className="text-[10px] font-semibold text-red-600 bg-red-50/80 px-1.5 py-0.5 rounded-full">
-                        Due now
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-amber-600 bg-amber-50/80 px-1.5 py-0.5 rounded-full">
-                        Due in {prediction.daysUntilNeeded}d
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleAddPrediction(prediction.name, prediction.category)}
-                  className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white shadow-sm hover:shadow-md transition-all active:scale-95 flex-shrink-0"
+            {predictions.map((prediction) => {
+              const overdue = prediction.daysUntilNeeded < 0;
+              return (
+                <article
+                  key={`prediction-${prediction.name}`}
+                  className={cn(
+                    "relative border bg-[var(--ft-paper)] px-4 py-3 flex items-center gap-3 transition-all",
+                    overdue ? "border-[var(--ft-signal)]" : "border-[var(--ft-ink)]",
+                  )}
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+                  <span aria-hidden className={cn("pointer-events-none absolute left-0 right-0 top-0 h-[2px]", overdue ? "bg-[var(--ft-signal)]" : "bg-[var(--ft-pickle)]")} />
+                  <span className="text-xl">{getCategoryEmoji(prediction.category as FoodCategory)}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-display text-base text-[var(--ft-ink)] capitalize leading-tight block">{prediction.name}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.55)]">
+                        <Clock className="w-3 h-3" />
+                        Every ~{prediction.averageIntervalDays}d
+                      </span>
+                      <span className={cn(
+                        "font-mono text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 border",
+                        overdue
+                          ? "border-[var(--ft-signal)] bg-[rgba(184,50,30,0.08)] text-[var(--ft-signal)]"
+                          : "border-[#b46c00] bg-[rgba(245,158,11,0.1)] text-[#b46c00]",
+                      )}>
+                        {overdue ? "Due now" : `Due in ${prediction.daysUntilNeeded}d`}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleAddPrediction(prediction.name, prediction.category)}
+                    className="h-8 w-8 border border-[var(--ft-ink)] bg-[var(--ft-ink)] flex items-center justify-center text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all duration-150 flex-shrink-0"
+                    aria-label="Add"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </article>
+              );
+            })}
           </div>
-        </div>
+        </PageSection>
       )}
 
       {/* Expiring Soon — restock suggestions */}
       {expiringItems.length > 0 && (
         <div className="mt-8 animate-fade-in-up">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-4 h-4 text-warning-500" />
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Expiring Soon — restock?
-            </h3>
+          <div className="flex items-baseline gap-3 mb-3 border-b border-[var(--ft-ink)] pb-2">
+            <AlertTriangle className="w-4 h-4 text-[#b46c00] self-center" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[#b46c00]">Use soon · restock</span>
+            <h3 className="font-display text-lg text-[var(--ft-ink)] leading-none">{t("shopping.expiringRestock")}</h3>
           </div>
           <div className="flex flex-wrap gap-2">
             {expiringItems.map((item) => (
               <button
                 key={`expiring-${item.name}`}
                 onClick={() => handleAddSuggestion(item.name, item.category)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 glass rounded-full text-xs font-medium text-slate-700 border border-warning-200/60 bg-warning-50/40 hover:bg-warning-100/60 hover:border-warning-300/60 hover:shadow-sm transition-all active:scale-95"
+                className="inline-flex items-center gap-2 px-3 py-1.5 border border-[#b46c00] bg-[rgba(245,158,11,0.1)] font-sans text-xs text-[var(--ft-ink)] hover:bg-[rgba(245,158,11,0.18)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)] transition-all duration-150"
               >
                 <span>{getCategoryEmoji(item.category as FoodCategory)}</span>
-                <span>{item.name}</span>
-                <span className="text-[10px] text-warning-600 font-semibold">
+                <span className="font-medium">{item.name}</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#b46c00]">
                   {formatRelativeDate(item.expiryDate)}
                 </span>
-                <Plus className="w-3 h-3 text-slate-400" />
+                <Plus className="w-3 h-3 text-[var(--ft-ink)]" />
               </button>
             ))}
           </div>
@@ -605,24 +909,23 @@ function ShoppingPage() {
       )}
 
       {/* Suggested Restocks — from waste log history */}
-      {recentItems.length > 0 && (
+      {recentItems.length > 0 && !storeMode && (
         <div className="mt-8 animate-fade-in-up">
-          <div className="flex items-center gap-2 mb-3">
-            <RotateCcw className="w-4 h-4 text-frost-500" />
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Suggested Restocks
-            </h3>
+          <div className="flex items-baseline gap-3 mb-3 border-b border-[var(--ft-ink)] pb-2">
+            <RotateCcw className="w-4 h-4 text-[var(--ft-pickle)] self-center" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)]">Recall · history</span>
+            <h3 className="font-display text-lg text-[var(--ft-ink)] leading-none">{t("shopping.suggestedRestocks")}</h3>
           </div>
           <div className="flex flex-wrap gap-2">
             {recentItems.map((item) => (
               <button
                 key={`recent-${item.name}`}
                 onClick={() => handleAddSuggestion(item.name, item.category)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 glass rounded-full text-xs font-medium text-slate-600 border border-frost-200/50 hover:bg-frost-50/60 hover:border-frost-300/50 hover:text-slate-800 hover:shadow-sm transition-all active:scale-95"
+                className="inline-flex items-center gap-2 px-3 py-1.5 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-sans text-xs text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)] transition-all duration-150"
               >
                 <span>{getCategoryEmoji(item.category as FoodCategory)}</span>
-                <span>{item.name}</span>
-                <Plus className="w-3 h-3 text-slate-400" />
+                <span className="font-medium">{item.name}</span>
+                <Plus className="w-3 h-3 text-[var(--ft-pickle)]" />
               </button>
             ))}
           </div>
@@ -630,44 +933,45 @@ function ShoppingPage() {
       )}
 
       {/* Seasonal & Holidays section */}
-      {(seasonalItems.length > 0 || upcomingHolidays.length > 0) && (
+      {(seasonalItems.length > 0 || upcomingHolidays.length > 0) && !storeMode && (
         <div className="mt-8 animate-fade-in-up">
           <button
             onClick={() => setSeasonalOpen((v) => !v)}
-            className="flex items-center gap-2 mb-3 group"
+            className="flex items-baseline gap-3 mb-3 group border-b border-[var(--ft-ink)] pb-2 w-full"
           >
-            <Calendar className="w-4 h-4 text-fresh-500" />
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Seasonal & Holidays
-            </h3>
-            <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform", seasonalOpen && "rotate-180")} />
+            <Calendar className="w-4 h-4 text-[var(--ft-pickle)] self-center" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)]">Calendar</span>
+            <h3 className="font-display text-lg text-[var(--ft-ink)] leading-none">{t("shopping.seasonalHolidays")}</h3>
+            <ChevronDown className={cn("w-4 h-4 text-[var(--ft-ink)] ml-auto self-center transition-transform", seasonalOpen && "rotate-180")} />
           </button>
 
           {seasonalOpen && (
             <div className="space-y-4">
               {/* In Season Now */}
               {seasonalItems.length > 0 && (
-                <GlassCard className="p-4" hover={false}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg">🌿</span>
-                    <h4 className="text-sm font-bold text-slate-800">In Season Now</h4>
-                    <span className="text-xs text-slate-400">— typically cheaper & fresher</span>
+                <GlassCard className="p-4" hover={false} accentBar="fresh">
+                  <div className="flex items-baseline gap-2 mb-3">
+                    <span className="text-lg self-center">🌿</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-pickle)]">Sub · in season</span>
+                    <h4 className="font-display text-base text-[var(--ft-ink)] leading-none">{t("shopping.inSeasonNow")}</h4>
+                    <span className="font-sans text-xs text-[rgba(21,19,15,0.55)] ml-2 italic">{t("shopping.inSeasonHint")}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {seasonalItems.map((item) => (
                       <button
                         key={item.name}
                         onClick={() => handleAddSuggestion(item.name, item.category)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 glass rounded-full text-xs font-medium text-slate-700 border border-fresh-200/50 hover:bg-fresh-50/60 hover:border-fresh-300/50 hover:shadow-sm transition-all active:scale-95"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-[var(--ft-pickle)] bg-[rgba(183,193,103,0.12)] font-sans text-xs text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.24)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)] transition-all duration-150"
                       >
                         <span>{item.emoji}</span>
-                        <span>{item.name}</span>
-                        <Plus className="w-3 h-3 text-slate-400" />
+                        <span className="font-medium">{item.name}</span>
+                        <Plus className="w-3 h-3 text-[var(--ft-pickle)]" />
                       </button>
                     ))}
                   </div>
                   {seasonalItems.some((i) => i.tip) && (
-                    <p className="text-[10px] text-fresh-600 mt-2 italic">
+                    <p className="font-sans text-xs text-[rgba(21,19,15,0.65)] mt-3 pt-3 border-t border-dashed border-[rgba(21,19,15,0.25)] italic">
+                      <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-[var(--ft-pickle)] not-italic mr-2">Tip</span>
                       {seasonalItems.find((i) => i.tip)?.tip}
                     </p>
                   )}
@@ -679,23 +983,27 @@ function ShoppingPage() {
                 <GlassCard key={holiday.id} className="overflow-hidden" hover={false}>
                   <button
                     onClick={() => setExpandedHoliday(expandedHoliday === holiday.id ? null : holiday.id)}
-                    className="w-full p-4 flex items-center gap-3 text-left"
+                    className="w-full p-4 flex items-center gap-3 text-left hover:bg-[rgba(183,193,103,0.08)] transition-colors"
                   >
-                    <span className="text-2xl">{holiday.emoji}</span>
+                    <div className="h-12 w-12 border border-[var(--ft-ink)] bg-[var(--ft-bone)] flex items-center justify-center text-2xl shrink-0 shadow-[2px_2px_0_var(--ft-ink)]">{holiday.emoji}</div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-bold text-slate-800">{holiday.name}</h4>
-                      <p className="text-xs text-slate-500">{holiday.description}</p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ft-pickle)]">Holiday · upcoming</p>
+                      <h4 className="font-display text-lg text-[var(--ft-ink)] leading-tight">{holiday.name}</h4>
+                      <p className="font-sans text-xs text-[rgba(21,19,15,0.6)] mt-0.5">{holiday.description}</p>
                     </div>
-                    <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform flex-shrink-0", expandedHoliday === holiday.id && "rotate-180")} />
+                    <ChevronDown className={cn("w-4 h-4 text-[var(--ft-ink)] transition-transform flex-shrink-0", expandedHoliday === holiday.id && "rotate-180")} />
                   </button>
 
                   {expandedHoliday === holiday.id && (
-                    <div className="px-4 pb-4 animate-fade-in-down">
-                      <div className="space-y-1.5 mb-3">
-                        {holiday.items.map((hi) => (
-                          <div key={hi.name} className="flex items-center justify-between text-xs text-slate-600 py-1 border-b border-slate-100/40 last:border-0">
+                    <div className="px-4 pb-4 animate-fade-in-down border-t border-dashed border-[rgba(21,19,15,0.25)]">
+                      <div className="border border-[var(--ft-ink)] bg-[var(--ft-bone)] my-3">
+                        {holiday.items.map((hi, i) => (
+                          <div key={hi.name} className={cn(
+                            "flex items-center justify-between font-sans text-xs text-[var(--ft-ink)] px-3 py-2",
+                            i < holiday.items.length - 1 && "border-b border-dashed border-[rgba(21,19,15,0.22)]",
+                          )}>
                             <span className="font-medium">{hi.name}</span>
-                            <span className="text-slate-400">{hi.quantity} {hi.unit}</span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[rgba(21,19,15,0.55)]">{hi.quantity} {hi.unit}</span>
                           </div>
                         ))}
                       </div>
@@ -708,9 +1016,9 @@ function ShoppingPage() {
                           }
                           toast(`${holiday.items.length} items added from ${holiday.name}!`, "success");
                         }}
-                        className="w-full py-2 bg-gradient-to-r from-frost-500 to-frost-600 text-white rounded-xl text-xs font-semibold shadow-sm hover:shadow-glow-frost transition-all active:scale-[0.97]"
+                        className="w-full py-2.5 border border-[var(--ft-ink)] bg-[var(--ft-ink)] font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all duration-150"
                       >
-                        Add all {holiday.items.length} items to list
+                        File all {holiday.items.length} items
                       </button>
                     </div>
                   )}
@@ -720,10 +1028,10 @@ function ShoppingPage() {
               {/* Browse All Holidays */}
               <button
                 onClick={() => setShowAllHolidays(true)}
-                className="flex items-center gap-1.5 px-3 py-2 glass rounded-xl text-xs font-semibold text-frost-600 hover:text-frost-800 hover:bg-white/70 transition-all group"
+                className="inline-flex items-center gap-2 px-3 py-2 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--ft-ink)] hover:bg-[var(--ft-pickle)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)] transition-all duration-150 group"
               >
                 <Gift className="w-3.5 h-3.5" />
-                Browse all holiday lists
+                {t("shopping.browseHolidayLists")}
                 <ChevronDown className="w-3 h-3 -rotate-90 group-hover:translate-x-0.5 transition-transform" />
               </button>
             </div>
@@ -732,28 +1040,35 @@ function ShoppingPage() {
       )}
 
       {/* All Holidays Modal */}
-      <Modal isOpen={showAllHolidays} onClose={() => { setShowAllHolidays(false); setBrowseExpandedHoliday(null); }} title="Norwegian Holiday Lists" subtitle="Pre-built shopping lists for celebrations" size="lg">
+      <Modal isOpen={showAllHolidays} onClose={() => { setShowAllHolidays(false); setBrowseExpandedHoliday(null); }} title={t("shopping.browseHolidayLists")} subtitle="Pre-built shopping lists for celebrations" size="lg">
         <div className="space-y-3">
           {NORWEGIAN_HOLIDAYS.map((holiday) => (
             <GlassCard key={holiday.id} className="overflow-hidden" hover={false}>
               <button
                 onClick={() => setBrowseExpandedHoliday(browseExpandedHoliday === holiday.id ? null : holiday.id)}
-                className="w-full p-4 flex items-center gap-3 text-left"
+                className="w-full p-4 flex items-center gap-3 text-left hover:bg-[rgba(183,193,103,0.08)] transition-colors"
               >
-                <span className="text-2xl">{holiday.emoji}</span>
+                <div className="h-12 w-12 border border-[var(--ft-ink)] bg-[var(--ft-bone)] flex items-center justify-center text-2xl shrink-0 shadow-[2px_2px_0_var(--ft-ink)]">{holiday.emoji}</div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-bold text-slate-800">{holiday.name}</h4>
-                  <p className="text-xs text-slate-500">{holiday.description} · {holiday.items.length} items</p>
+                  <h4 className="font-display text-lg text-[var(--ft-ink)] leading-tight">{holiday.name}</h4>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.55)] mt-0.5">
+                    <span className="font-sans normal-case tracking-normal text-xs">{holiday.description}</span>
+                    <span className="mx-2 text-[var(--ft-pickle)]">·</span>
+                    {holiday.items.length} items
+                  </p>
                 </div>
-                <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform flex-shrink-0", browseExpandedHoliday === holiday.id && "rotate-180")} />
+                <ChevronDown className={cn("w-4 h-4 text-[var(--ft-ink)] transition-transform flex-shrink-0", browseExpandedHoliday === holiday.id && "rotate-180")} />
               </button>
               {browseExpandedHoliday === holiday.id && (
-                <div className="px-4 pb-4 animate-fade-in-down">
-                  <div className="space-y-1.5 mb-3">
-                    {holiday.items.map((hi) => (
-                      <div key={hi.name} className="flex items-center justify-between text-xs text-slate-600 py-1 border-b border-slate-100/40 last:border-0">
+                <div className="px-4 pb-4 animate-fade-in-down border-t border-dashed border-[rgba(21,19,15,0.25)]">
+                  <div className="border border-[var(--ft-ink)] bg-[var(--ft-bone)] my-3">
+                    {holiday.items.map((hi, i) => (
+                      <div key={hi.name} className={cn(
+                        "flex items-center justify-between font-sans text-xs text-[var(--ft-ink)] px-3 py-2",
+                        i < holiday.items.length - 1 && "border-b border-dashed border-[rgba(21,19,15,0.22)]",
+                      )}>
                         <span className="font-medium">{hi.name}</span>
-                        <span className="text-slate-400">{hi.quantity} {hi.unit}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[rgba(21,19,15,0.55)]">{hi.quantity} {hi.unit}</span>
                       </div>
                     ))}
                   </div>
@@ -768,9 +1083,9 @@ function ShoppingPage() {
                       setBrowseExpandedHoliday(null);
                       toast(`${holiday.items.length} items added from ${holiday.name}!`, "success");
                     }}
-                    className="w-full py-2 bg-gradient-to-r from-frost-500 to-frost-600 text-white rounded-xl text-xs font-semibold shadow-sm hover:shadow-glow-frost transition-all active:scale-[0.97]"
+                    className="w-full py-2.5 border border-[var(--ft-ink)] bg-[var(--ft-ink)] font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all duration-150"
                   >
-                    Add all {holiday.items.length} items to list
+                    File all {holiday.items.length} items
                   </button>
                 </div>
               )}
@@ -779,60 +1094,251 @@ function ShoppingPage() {
         </div>
       </Modal>
 
+      <Modal
+        isOpen={showNewListModal}
+        onClose={() => setShowNewListModal(false)}
+        title={t("shopping.createList")}
+        subtitle={t("shopping.createListSubtitle")}
+        size="md"
+      >
+        <form onSubmit={handleCreateList} className="space-y-4">
+          <input
+            type="text"
+            value={newListName}
+            onChange={(e) => setNewListName(e.target.value)}
+            placeholder="e.g. Weekly Basics"
+            className={baseInput}
+            autoFocus
+            required
+          />
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="secondary" fullWidth onClick={() => setShowNewListModal(false)}>
+              {t("shopping.cancel")}
+            </Button>
+            <Button type="submit" variant="primary" fullWidth>
+              {t("shopping.create")}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={showPasteListModal}
+        onClose={() => setShowPasteListModal(false)}
+        title={t("shopping.pasteTitle")}
+        subtitle={t("shopping.pasteSubtitle")}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <textarea
+            value={pasteListText}
+            onChange={(event) => {
+              setPasteListText(event.target.value);
+              setParsedPasteItems([]);
+            }}
+            placeholder={"2 milk\nbread, eggs, apples\n1 kg potatoes"}
+            className={cn(baseInput, "min-h-36 resize-y")}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="secondary" onClick={() => setShowPasteListModal(false)}>
+              {t("shopping.cancel")}
+            </Button>
+            <Button type="button" variant="glass" onClick={handlePreviewPasteList} disabled={!pasteListText.trim()}>
+              {t("shopping.previewItems")}
+            </Button>
+            <Button type="button" variant="primary" onClick={handleImportPasteList} disabled={parsedPasteItems.length === 0}>
+              {t("shopping.import")} {parsedPasteItems.length || ""} {t("shopping.items")}
+            </Button>
+          </div>
+          {parsedPasteItems.length > 0 && (
+            <div className="max-h-72 space-y-2 overflow-auto">
+              {parsedPasteItems.map((item, index) => (
+                <div key={item.id} className="grid gap-2 border border-[var(--ft-ink)] bg-[var(--ft-bone)] p-3 sm:grid-cols-[1fr_90px_120px]">
+                  <input
+                    value={item.name}
+                    onChange={(event) => setParsedPasteItems((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, name: event.target.value } : row))}
+                    className={baseInput}
+                    aria-label="Imported item name"
+                  />
+                  <input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    value={item.quantity}
+                    onChange={(event) => setParsedPasteItems((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Number(event.target.value) } : row))}
+                    className={baseInput}
+                    aria-label="Imported item quantity"
+                  />
+                  <select
+                    value={item.category}
+                    onChange={(event) => setParsedPasteItems((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, category: event.target.value as FoodCategory } : row))}
+                    className={baseInput}
+                    aria-label="Imported item category"
+                  >
+                    {categories.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showPutAwayModal}
+        onClose={() => setShowPutAwayModal(false)}
+        title={t("shopping.putAwayBought")}
+        subtitle={t("shopping.putAwaySubtitle")}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: "fridge", label: "Fridge", icon: Refrigerator },
+              { value: "freezer", label: "Freezer", icon: Snowflake },
+              { value: "pantry", label: "Pantry", icon: Archive },
+            ].map((location) => {
+              const Icon = location.icon;
+              const selected = defaultPutAwayLocation === location.value;
+              return (
+                <button
+                  key={location.value}
+                  type="button"
+                  onClick={() => handleApplyDestinationToAll(location.value as StorageLocation)}
+                  className={cn(
+                    "px-3 py-3 border font-mono text-[11px] uppercase tracking-[0.18em] transition-all duration-150",
+                    selected
+                      ? "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)]"
+                      : "border-[var(--ft-ink)] bg-[var(--ft-paper)] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)]",
+                  )}
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Icon className="w-4 h-4" />
+                    {location.label}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.55)]">
+            ↳ Tap a destination above to apply to all, or adjust items one by one.
+          </p>
+          <div className="max-h-[420px] overflow-auto space-y-2">
+            {checkedItems.map((item) => {
+              const override = putAwayOverrides[item.id];
+              const location = override?.location ?? defaultPutAwayLocation;
+              return (
+              <div key={item.id} className="border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-3">
+                <div className="mb-3 flex items-baseline justify-between gap-3 border-b border-dashed border-[rgba(21,19,15,0.22)] pb-2">
+                  <span className="font-display text-base text-[var(--ft-ink)] leading-none">{item.name}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ft-pickle)]">{item.quantity} {item.unit}</span>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[1fr_1fr]">
+                  <label className="block">
+                    <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ft-ink)]">{t("shopping.destination")}</span>
+                    <select
+                      value={location}
+                      onChange={(event) => {
+                        const nextLocation = event.target.value as StorageLocation;
+                        const days = getDefaultShelfLife(item.name, item.category, nextLocation);
+                        setPutAwayOverrides((current) => ({
+                          ...current,
+                          [item.id]: {
+                            ...(current[item.id] ?? { id: item.id }),
+                            location: nextLocation,
+                            expiryDate: new Date(Date.now() + days * 86_400_000).toISOString().split("T")[0],
+                          },
+                        }));
+                      }}
+                      className={baseInput}
+                    >
+                      <option value="fridge">Fridge</option>
+                      <option value="freezer">Freezer</option>
+                      <option value="pantry">Pantry</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ft-ink)]">{t("shopping.expiryEstimate")}</span>
+                    <input
+                      type="date"
+                      value={override?.expiryDate ?? ""}
+                      onChange={(event) => setPutAwayOverrides((current) => ({
+                        ...current,
+                        [item.id]: { ...(current[item.id] ?? { id: item.id }), expiryDate: event.target.value },
+                      }))}
+                      className={baseInput}
+                    />
+                  </label>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="secondary" fullWidth onClick={() => setShowPutAwayModal(false)}>
+              {t("shopping.cancel")}
+            </Button>
+            <Button type="button" variant="primary" fullWidth onClick={handlePutAwayChecked}>
+              {t("shopping.confirmPutAway")}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Add Item Modal */}
       <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add to Shopping List" subtitle="What do you need to buy?" size="lg">
         <form onSubmit={handleAdd} className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Item Name</label>
+          <FormField label="01 · Item name">
             <input type="text" value={name} onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Whole milk, Chicken breast…" className={baseInput} autoFocus required />
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Category</label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {categories.map((cat) => (
-                <button key={cat.value} type="button" onClick={() => setCategory(cat.value)}
-                  className={cn("flex items-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all",
-                    category === cat.value ? "border-frost-400/60 bg-frost-50/80 text-frost-700 shadow-sm" : "border-white/30 glass text-slate-600 hover:border-frost-200/50 hover:text-slate-800")}>
-                  <span className="text-base">{getCategoryEmoji(cat.value)}</span>
-                  <span className="truncate">{cat.label}</span>
-                </button>
-              ))}
+          <FormField label="02 · Category">
+            <div className="grid grid-cols-4 gap-1.5 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-1.5">
+              {categories.map((cat) => {
+                const active = category === cat.value;
+                return (
+                  <button key={cat.value} type="button" onClick={() => setCategory(cat.value)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2 py-2 border font-mono text-[10px] uppercase tracking-[0.14em] transition-all duration-150",
+                      active
+                        ? "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)]"
+                        : "border-[var(--ft-ink)] bg-[var(--ft-bone)] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.16)]",
+                    )}>
+                    <span className="text-base">{getCategoryEmoji(cat.value)}</span>
+                    <span className="truncate">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Quantity</label>
+            <FormField label="03 · Quantity">
               <input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))}
                 min={0.1} step={0.1} className={baseInput} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Unit</label>
+            </FormField>
+            <FormField label="04 · Unit">
               <select value={unit} onChange={(e) => setUnit(e.target.value)}
-                className={cn(baseInput, "bg-white/60 cursor-pointer")}>
+                className={cn(baseInput, "cursor-pointer")}>
                 {units.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
-            </div>
+            </FormField>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-              Notes <span className="text-slate-400 normal-case font-normal">(optional)</span>
-            </label>
+          <FormField label="05 · Notes" hint="optional">
             <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Brand preference, size, etc." className={baseInput} />
-          </div>
+          </FormField>
 
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex items-center gap-3 pt-3 border-t border-dashed border-[rgba(21,19,15,0.3)]">
             <button type="button" onClick={() => setShowAddModal(false)}
-              className="flex-1 py-2.5 glass rounded-xl text-sm font-semibold text-slate-600 hover:bg-white/80 transition-all">
+              className="flex-1 py-2.5 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ft-ink)] hover:bg-[rgba(21,19,15,0.06)] transition-colors duration-150">
               Cancel
             </button>
             <button type="submit"
-              className="flex-1 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-bold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.97]">
-              Add to List
+              className="flex-1 py-2.5 border border-[var(--ft-ink)] bg-[var(--ft-ink)] font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all duration-150">
+              File on the list
             </button>
           </div>
         </form>
@@ -856,31 +1362,39 @@ function ShoppingItemRow({
   const prices: StorePriceEntry[] = item.comparison_prices ?? [];
 
   return (
-    <div className={cn("glass rounded-xl px-4 py-3 flex items-center gap-3 group transition-all relative",
-      item.checked && "opacity-60")}>
-      {/* Checkbox */}
+    <div className={cn(
+      "relative border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-4 py-3 flex items-center gap-3 group transition-all duration-150 hover:-translate-y-px hover:shadow-[2px_2px_0_var(--ft-ink)]",
+      item.checked && "opacity-60",
+    )}>
+      {/* Checkbox — brutalist tick */}
       <button
         onClick={() => onToggle(item)}
         className={cn(
-          "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all",
+          "min-h-11 min-w-11 border flex items-center justify-center flex-shrink-0 transition-all duration-150",
           item.checked
-            ? "bg-fresh-500 border-fresh-500 text-white"
-            : "border-slate-300 hover:border-frost-400 bg-white/50",
+            ? "border-[var(--ft-ink)] bg-[var(--ft-pickle)] text-[var(--ft-ink)] shadow-[2px_2px_0_var(--ft-ink)]"
+            : "border-[var(--ft-ink)] bg-[var(--ft-bone)] hover:bg-[rgba(183,193,103,0.18)]",
         )}
+        aria-label={item.checked ? "Mark unchecked" : "Mark checked"}
       >
-        {item.checked && <Check className="w-3.5 h-3.5" />}
+        {item.checked && <Check className="w-5 h-5" strokeWidth={2.5} />}
       </button>
 
       {/* Item info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={cn("text-sm font-medium", item.checked && "line-through text-slate-400")}>
+        <div className="flex items-baseline gap-2">
+          <span className={cn(
+            "font-display text-base text-[var(--ft-ink)] leading-tight",
+            item.checked && "line-through text-[rgba(21,19,15,0.45)]",
+          )}>
             {item.name}
           </span>
-          <span className="text-xs text-slate-400">{item.quantity} {item.unit}</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ft-pickle)]">
+            {item.quantity} {item.unit}
+          </span>
         </div>
         {item.notes && (
-          <p className="text-xs text-slate-400 mt-0.5 truncate">{item.notes}</p>
+          <p className="font-sans text-xs text-[rgba(21,19,15,0.55)] mt-0.5 truncate">{item.notes}</p>
         )}
       </div>
 
@@ -888,7 +1402,7 @@ function ShoppingItemRow({
       <button
         onClick={() => onFetchPrices(item)}
         disabled={isFetchingPrices}
-        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-frost-50/80 text-frost-700 text-xs font-semibold hover:bg-frost-100/80 transition-all flex-shrink-0 disabled:opacity-50"
+        className="hidden min-h-10 items-center gap-1.5 px-3 py-2 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)] disabled:opacity-50 transition-colors duration-150 sm:inline-flex"
       >
         <RefreshCw className={cn("w-3 h-3", isFetchingPrices && "animate-spin")} />
         {isFetchingPrices ? "Checking" : "Cheapest"}
@@ -898,10 +1412,11 @@ function ShoppingItemRow({
       {item.cheapest_price != null && (
         <button
           onClick={() => setShowPrices(!showPrices)}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-fresh-50/80 text-fresh-700 text-xs font-semibold hover:bg-fresh-100/80 transition-all flex-shrink-0"
+          className="inline-flex min-h-10 items-center gap-1.5 px-3 py-2 border border-[var(--ft-pickle)] bg-[rgba(183,193,103,0.18)] font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.32)] transition-colors duration-150 flex-shrink-0"
         >
           <Store className="w-3 h-3" />
-          {item.cheapest_price.toFixed(0)} kr
+          <span className="font-display text-sm leading-none">{item.cheapest_price.toFixed(0)}</span>
+          <span>kr</span>
           {prices.length > 1 && (
             <ChevronDown className={cn("w-3 h-3 transition-transform", showPrices && "rotate-180")} />
           )}
@@ -911,19 +1426,27 @@ function ShoppingItemRow({
       {/* Delete */}
       <button
         onClick={() => onDelete(item.id)}
-        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded-lg text-slate-400 hover:text-danger-500 hover:bg-danger-50/80 transition-all flex-shrink-0"
+        className="min-h-11 min-w-11 p-2 border border-transparent text-[rgba(21,19,15,0.4)] hover:border-[var(--ft-signal)] hover:bg-[var(--ft-signal)] hover:text-[var(--ft-bone)] transition-all duration-150 md:opacity-0 md:group-hover:opacity-100 flex-shrink-0"
+        aria-label="Delete item"
       >
         <X className="w-3.5 h-3.5" />
       </button>
 
-      {/* Expanded price comparison */}
+      {/* Expanded price comparison — brutalist tooltip */}
       {showPrices && prices.length > 1 && (
-        <div className="absolute right-4 top-full mt-1 z-10 glass-heavy rounded-xl p-3 shadow-glass min-w-[200px] animate-fade-in-down">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Price Comparison</p>
+        <div className="absolute right-4 top-full mt-2 z-10 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-3 shadow-[3px_3px_0_var(--ft-ink)] min-w-[220px] animate-fade-in-down">
+          <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-[var(--ft-pickle)] mb-2 pb-1.5 border-b border-dashed border-[rgba(21,19,15,0.25)]">Price comparison</p>
           {prices.map((p, i) => (
-            <div key={p.store} className="flex items-center justify-between py-1">
-              <span className={cn("text-xs", i === 0 ? "font-bold text-fresh-700" : "text-slate-600")}>{p.store}</span>
-              <span className={cn("text-xs font-semibold", i === 0 ? "text-fresh-700" : "text-slate-500")}>{p.price.toFixed(2)} kr</span>
+            <div key={p.store} className="grid grid-cols-[1.5rem_1fr_auto] items-baseline gap-2 py-1">
+              <span className="font-mono text-[9px] tracking-[0.16em] text-[rgba(21,19,15,0.5)]">{String(i + 1).padStart(2, "0")}</span>
+              <span className={cn(
+                "font-sans text-xs",
+                i === 0 ? "font-bold text-[var(--ft-ink)]" : "text-[rgba(21,19,15,0.65)]",
+              )}>{p.store}</span>
+              <span className={cn(
+                "font-display text-sm leading-none",
+                i === 0 ? "text-[var(--ft-pickle)]" : "text-[rgba(21,19,15,0.55)]",
+              )}>{p.price.toFixed(2)} <span className="font-mono text-[9px] tracking-[0.18em]">kr</span></span>
             </div>
           ))}
         </div>

@@ -3,7 +3,16 @@ import { FoodCategory, StorageLocation, NutritionInfo, FoodItem } from '@/types'
 import { calculateExpiryDate } from '@/data/expiry-defaults';
 import { getDefaultCategory, getDefaultShelfLife, getDefaultLocation } from '@/lib/shelf-life';
 import { getCategoryEmoji, cn } from '@/lib/utils';
-import { Refrigerator, Snowflake, Archive, Check, Zap, Beef, Wheat, Droplets, X, AlertTriangle } from 'lucide-react';
+import Refrigerator from 'lucide-react/dist/esm/icons/refrigerator';
+import Snowflake from 'lucide-react/dist/esm/icons/snowflake';
+import Archive from 'lucide-react/dist/esm/icons/archive';
+import Check from 'lucide-react/dist/esm/icons/check';
+import Zap from 'lucide-react/dist/esm/icons/zap';
+import Beef from 'lucide-react/dist/esm/icons/beef';
+import Wheat from 'lucide-react/dist/esm/icons/wheat';
+import Droplets from 'lucide-react/dist/esm/icons/droplets';
+import X from 'lucide-react/dist/esm/icons/x';
+import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
 
 interface AddItemFormProps {
   onSubmit: (item: {
@@ -54,31 +63,39 @@ const categories: { value: FoodCategory; label: string }[] = [
 ];
 
 const locationConfig = [
-  { value: 'fridge'  as StorageLocation, label: 'Fridge',  icon: Refrigerator, color: 'text-frost-600',   bg: 'bg-frost-50' },
-  { value: 'freezer' as StorageLocation, label: 'Freezer', icon: Snowflake,     color: 'text-frost-700',   bg: 'bg-frost-100/60' },
-  { value: 'pantry'  as StorageLocation, label: 'Pantry',  icon: Archive,       color: 'text-warning-700', bg: 'bg-warning-50' },
+  { value: 'fridge'  as StorageLocation, label: 'Fridge',  icon: Refrigerator },
+  { value: 'freezer' as StorageLocation, label: 'Freezer', icon: Snowflake },
+  { value: 'pantry'  as StorageLocation, label: 'Pantry',  icon: Archive },
 ];
 
 const units = ['item','lb','oz','kg','g','L','mL','cup','pack','bottle','can','bag','box','dozen'];
 
 const baseInput =
-  'w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 ' +
-  'transition-all duration-200 outline-none ' +
-  'focus:ring-2 focus:ring-frost-400/50 focus:bg-white/80 hover:bg-white/75';
+  'w-full bg-[var(--ft-paper)] border border-[var(--ft-ink)] px-4 py-2.5 text-sm text-[var(--ft-ink)] ' +
+  'placeholder:text-[rgba(21,19,15,0.42)] ' +
+  'transition-all duration-150 outline-none ' +
+  'focus:bg-[var(--ft-bone)] focus:shadow-[2px_2px_0_var(--ft-ink)] focus:-translate-y-px ' +
+  'hover:bg-[var(--ft-bone)]';
 
-function MacroChip({ icon, label, value, unit, color }: { icon: React.ReactNode; label: string; value: string; unit: string; color: string }) {
+const fieldLabel =
+  'flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--ft-ink)]';
+
+function MacroChip({ icon, label, value, unit }: { icon: React.ReactNode; label: string; value: string; unit: string }) {
   return (
-    <div className={cn('flex flex-col items-center rounded-xl p-2 gap-0.5', color)}>
-      <div className="flex items-center gap-1 opacity-70">{icon}<span className="text-[10px] font-bold uppercase tracking-wide">{label}</span></div>
-      <span className="text-sm font-bold leading-none">{value}</span>
-      <span className="text-[10px] opacity-60">{unit}</span>
+    <div className="flex flex-col items-center gap-0.5 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-2">
+      <div className="flex items-center gap-1 text-[rgba(21,19,15,0.62)]">
+        {icon}
+        <span className="font-mono text-[9px] font-bold uppercase tracking-[0.18em]">{label}</span>
+      </div>
+      <span className="font-display text-base font-bold leading-none text-[var(--ft-ink)]">{value}</span>
+      <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[rgba(21,19,15,0.50)]">{unit}</span>
     </div>
   );
 }
 
 function AutoFilledPill() {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-frost-100/80 text-frost-600 text-[10px] font-semibold uppercase tracking-wide animate-fade-in-up normal-case">
+    <span className="inline-flex items-center border border-[var(--ft-ink)] bg-[var(--ft-pickle)] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--ft-ink)] animate-fade-in-up">
       Auto-filled
     </span>
   );
@@ -232,44 +249,57 @@ export function AddItemForm({ onSubmit, onCancel, initialBarcode, initialName, i
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Item Name</label>
+      <div className="space-y-2">
+        <label className={fieldLabel}>Item Name</label>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Whole milk, Chicken breast…" className={baseInput} autoFocus required />
         {duplicates.length > 0 && !dismissedDuplicates && (
-          <div className="mt-1.5 bg-warning-50 border border-warning-200/60 rounded-xl px-3 py-2 flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-warning-600 mt-0.5 shrink-0" />
-            <div className="flex-1 min-w-0 space-y-1">
+          <div className="mt-2 flex items-start gap-2 border border-[#b46c00] bg-[rgba(245,158,11,0.10)] px-3 py-2 shadow-[2px_2px_0_var(--ft-ink)]">
+            <span aria-hidden className="absolute" />
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#7c4a00]" strokeWidth={2} />
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="font-mono text-[9px] font-bold uppercase tracking-[0.22em] text-[#7c4a00]">Heads up · already on the shelf</p>
               {duplicates.slice(0, 3).map((dup) => (
-                <p key={dup.id} className="text-xs text-warning-800">
-                  You already have <strong>{dup.name}</strong> in your {locationLabels[dup.location]} ({formatExpiryDistance(dup.expiry_date)}). Add anyway?
+                <p key={dup.id} className="text-[12px] leading-snug text-[var(--ft-ink)]">
+                  <strong className="font-display font-semibold">{dup.name}</strong> in your {locationLabels[dup.location]} — {formatExpiryDistance(dup.expiry_date)}.
                 </p>
               ))}
               {duplicates.length > 3 && (
-                <p className="text-xs text-warning-600">...and {duplicates.length - 3} more similar item{duplicates.length - 3 !== 1 ? 's' : ''}</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[rgba(21,19,15,0.55)]">+ {duplicates.length - 3} more</p>
               )}
             </div>
-            <button type="button" onClick={() => setDismissedDuplicates(true)} className="shrink-0 p-0.5 rounded-lg text-warning-500 hover:text-warning-700 hover:bg-warning-100 transition-colors">
-              <X className="w-3.5 h-3.5" />
+            <button type="button" onClick={() => setDismissedDuplicates(true)} aria-label="Dismiss duplicates"
+              className="shrink-0 border border-[var(--ft-ink)] bg-[var(--ft-bone)] p-0.5 text-[var(--ft-ink)] transition-all hover:rotate-90 hover:bg-[var(--ft-signal)] hover:text-[var(--ft-bone)]">
+              <X className="h-3 w-3" strokeWidth={2.25} />
             </button>
           </div>
         )}
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2">
-          Where are you storing it?
+        <label className={fieldLabel}>
+          Storage
           {autoFillFields.has('location') && <AutoFilledPill />}
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          {locationConfig.map((loc) => {
+        <div className="grid grid-cols-3 gap-0 border border-[var(--ft-ink)]" role="group">
+          {locationConfig.map((loc, i) => {
             const Icon = loc.icon; const active = location === loc.value;
+            const isLast = i === locationConfig.length - 1;
             return (
               <button key={loc.value} type="button" onClick={() => handleLocationChange(loc.value)}
-                className={cn('flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all text-sm font-medium',
-                  active ? `border-frost-400/60 ${loc.bg} ${loc.color} shadow-glass` : 'border-white/30 glass text-slate-500 hover:border-frost-300/40 hover:text-slate-700')}>
-                <Icon className={cn('w-5 h-5', active ? loc.color : 'text-slate-400')} strokeWidth={1.75} />
-                {loc.label}
-                {active && <Check className={cn('w-3 h-3', loc.color)} />}
+                aria-pressed={active}
+                className={cn(
+                  'relative flex flex-col items-center gap-1.5 px-2 py-3 transition-all duration-150',
+                  !isLast && 'border-r border-[var(--ft-ink)]',
+                  active
+                    ? 'bg-[var(--ft-ink)] text-[var(--ft-bone)]'
+                    : 'bg-[var(--ft-paper)] text-[rgba(21,19,15,0.62)] hover:bg-[var(--ft-bone)] hover:text-[var(--ft-ink)]',
+                )}>
+                {active && (
+                  <span aria-hidden className="absolute -top-px left-1/2 h-1 w-8 -translate-x-1/2 bg-[var(--ft-pickle)]" />
+                )}
+                <Icon className={cn('h-4 w-4', active ? 'text-[var(--ft-pickle)]' : '')} strokeWidth={active ? 2 : 1.75} />
+                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em]">{loc.label}</span>
+                {active && <Check className="h-3 w-3 text-[var(--ft-pickle)]" strokeWidth={2.5} />}
               </button>
             );
           })}
@@ -277,82 +307,105 @@ export function AddItemForm({ onSubmit, onCancel, initialBarcode, initialName, i
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2">
+        <label className={fieldLabel}>
           Category
           {autoFillFields.has('category') && <AutoFilledPill />}
         </label>
-        <div className="grid grid-cols-4 gap-1.5">
-          {categories.map((cat) => (
-            <button key={cat.value} type="button" onClick={() => handleCategoryChange(cat.value)}
-              className={cn('flex items-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all',
-                category === cat.value ? 'border-frost-400/60 bg-frost-50/80 text-frost-700 shadow-sm' : 'border-white/30 glass text-slate-600 hover:border-frost-200/50 hover:text-slate-800')}>
-              <span className="text-base">{getCategoryEmoji(cat.value)}</span>
-              <span className="truncate">{cat.label}</span>
-            </button>
-          ))}
+        <div className="grid grid-cols-4 gap-0 border border-[var(--ft-ink)]">
+          {categories.map((cat, i) => {
+            const active = category === cat.value;
+            const col = i % 4;
+            const row = Math.floor(i / 4);
+            const lastRow = Math.floor((categories.length - 1) / 4);
+            return (
+              <button key={cat.value} type="button" onClick={() => handleCategoryChange(cat.value)}
+                aria-pressed={active}
+                className={cn(
+                  'flex items-center gap-1.5 px-2 py-2 text-left transition-all duration-150',
+                  col < 3 && 'border-r border-[var(--ft-ink)]',
+                  row < lastRow && 'border-b border-[var(--ft-ink)]',
+                  active
+                    ? 'bg-[var(--ft-pickle)] text-[var(--ft-ink)]'
+                    : 'bg-[var(--ft-paper)] text-[rgba(21,19,15,0.66)] hover:bg-[var(--ft-bone)] hover:text-[var(--ft-ink)]',
+                )}>
+                <span className="text-base leading-none">{getCategoryEmoji(cat.value)}</span>
+                <span className="truncate font-mono text-[10px] font-bold uppercase tracking-[0.14em]">{cat.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Quantity</label>
+        <div className="space-y-2">
+          <label className={fieldLabel}>Quantity</label>
           <input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} min={0.1} step={0.1} className={baseInput} />
         </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Unit</label>
-          <select value={unit} onChange={(e) => setUnit(e.target.value)} className={cn(baseInput, 'bg-white/60 cursor-pointer')}>
+        <div className="space-y-2">
+          <label className={fieldLabel}>Unit</label>
+          <select value={unit} onChange={(e) => setUnit(e.target.value)} className={cn(baseInput, 'cursor-pointer appearance-none')}>
             {units.map((u) => <option key={u} value={u}>{u}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2">
-          Expiry Date <span className="text-slate-400 normal-case font-normal">(auto-estimated)</span>
+      <div className="space-y-2">
+        <label className={fieldLabel}>
+          <span>Expiry · <span className="text-[rgba(21,19,15,0.45)]">auto-estimated</span></span>
           {autoFillFields.has('expiry') && <AutoFilledPill />}
         </label>
         <input type="date" value={expiryDate} onChange={handleExpiryChange} className={baseInput} />
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Shelf / Drawer <span className="text-slate-400 normal-case font-normal">(optional)</span></label>
-        <input type="text" value={shelf} onChange={(e) => setShelf(e.target.value)} placeholder="Top shelf, Door, Crisper drawer…" className={baseInput} />
+      <div className="space-y-2">
+        <label className={fieldLabel}>Shelf · drawer <span className="text-[rgba(21,19,15,0.45)]">opt.</span></label>
+        <input type="text" value={shelf} onChange={(e) => setShelf(e.target.value)} placeholder="Top shelf, door, crisper…" className={baseInput} />
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Notes <span className="text-slate-400 normal-case font-normal">(optional)</span></label>
+      <div className="space-y-2">
+        <label className={fieldLabel}>Notes <span className="text-[rgba(21,19,15,0.45)]">opt.</span></label>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any extra details…" rows={2} className={cn(baseInput, 'resize-none')} />
       </div>
 
-      {/* Nutrition panel — shown when data was pulled from barcode scan */}
       {initialNutrition && (
-        <div className="glass rounded-2xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5 text-frost-500" />
-            <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Nutrition · per 100 g</p>
+        <div className="border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-4 shadow-[3px_3px_0_var(--ft-ink)]">
+          <div className="mb-3 flex items-center gap-2 border-b border-[rgba(21,19,15,0.20)] pb-2">
+            <Zap className="h-3.5 w-3.5 text-[var(--ft-pickle)]" strokeWidth={2} />
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--ft-ink)]">Nutrition · per 100 g</p>
             {initialNutrition.servingSize && (
-              <span className="ml-auto text-xs text-slate-400">Serving: {initialNutrition.servingSize}</span>
+              <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(21,19,15,0.50)]">Serving · {initialNutrition.servingSize}</span>
             )}
           </div>
           <div className="grid grid-cols-4 gap-2">
-            <MacroChip icon={<Zap className="w-3 h-3" />}      label="Calories" value={`${initialNutrition.calories}`} unit="kcal" color="text-warning-700 bg-warning-50/80" />
-            <MacroChip icon={<Beef className="w-3 h-3" />}     label="Protein"  value={`${initialNutrition.protein}`}  unit="g"    color="text-fresh-700 bg-fresh-50/80" />
-            <MacroChip icon={<Wheat className="w-3 h-3" />}    label="Carbs"    value={`${initialNutrition.carbs}`}    unit="g"    color="text-frost-700 bg-frost-50/80" />
-            <MacroChip icon={<Droplets className="w-3 h-3" />} label="Fat"      value={`${initialNutrition.fat}`}      unit="g"    color="text-slate-600 bg-slate-100/80" />
+            <MacroChip icon={<Zap className="h-3 w-3" />}      label="kcal"    value={`${initialNutrition.calories}`} unit="kcal" />
+            <MacroChip icon={<Beef className="h-3 w-3" />}     label="Protein" value={`${initialNutrition.protein}`}  unit="g" />
+            <MacroChip icon={<Wheat className="h-3 w-3" />}    label="Carbs"   value={`${initialNutrition.carbs}`}    unit="g" />
+            <MacroChip icon={<Droplets className="h-3 w-3" />} label="Fat"     value={`${initialNutrition.fat}`}      unit="g" />
           </div>
           {(initialNutrition.fiber != null || initialNutrition.sugar != null || initialNutrition.sodium != null) && (
-            <div className="flex gap-3 text-xs text-slate-500 pt-1 border-t border-white/30">
-              {initialNutrition.fiber  != null && <span>Fiber <strong className="text-slate-700">{initialNutrition.fiber}g</strong></span>}
-              {initialNutrition.sugar  != null && <span>Sugar <strong className="text-slate-700">{initialNutrition.sugar}g</strong></span>}
-              {initialNutrition.sodium != null && <span>Sodium <strong className="text-slate-700">{initialNutrition.sodium}mg</strong></span>}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-dashed border-[rgba(21,19,15,0.25)] pt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(21,19,15,0.62)]">
+              {initialNutrition.fiber  != null && <span>Fiber · <strong className="text-[var(--ft-ink)]">{initialNutrition.fiber}g</strong></span>}
+              {initialNutrition.sugar  != null && <span>Sugar · <strong className="text-[var(--ft-ink)]">{initialNutrition.sugar}g</strong></span>}
+              {initialNutrition.sodium != null && <span>Sodium · <strong className="text-[var(--ft-ink)]">{initialNutrition.sodium}mg</strong></span>}
             </div>
           )}
         </div>
       )}
 
       <div className="flex gap-3 pt-2">
-        <button type="submit" className="flex-1 py-3 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl font-semibold text-sm shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.98]">Add Item</button>
-        <button type="button" onClick={onCancel} className="px-5 py-3 glass text-slate-600 rounded-xl font-semibold text-sm hover:bg-white/80 transition-all active:scale-[0.98]">Cancel</button>
+        <button
+          type="submit"
+          className="flex-1 border border-[var(--ft-ink)] bg-[var(--ft-ink)] py-3 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)] transition-all hover:-translate-y-0.5 hover:shadow-[5px_5px_0_var(--ft-pickle)] active:translate-y-0 active:shadow-[2px_2px_0_var(--ft-pickle)]"
+        >
+          File on the shelf
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--ft-ink)] transition-all hover:bg-[var(--ft-bone)] hover:shadow-[2px_2px_0_var(--ft-ink)] hover:-translate-y-px"
+        >
+          Cancel
+        </button>
       </div>
     </form>
   );

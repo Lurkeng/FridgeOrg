@@ -2,42 +2,67 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useWasteLogs } from "@/hooks/useWaste";
 import { useCountUp } from "@/hooks/useCountUp";
-import GlassCard from "@/components/ui/GlassCard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WasteSkeleton } from "@/components/ui/Skeleton";
 import { getCategoryEmoji, getCategoryLabel } from "@/lib/utils";
 import { BarChart3, Coins, Calendar, AlertTriangle, TrendingDown, TrendingUp, Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppPreferences } from "@/lib/app-preferences";
 
 export const Route = createFileRoute("/_app/waste")({
   component: WastePage,
 });
 
-function WasteStatCard({ label, value, sub, icon: Icon, gradient, delay, trend }: {
+function WasteStatCard({ label, value, sub, icon: Icon, accent, delay, trend, kicker }: {
   label: string; value: string; sub?: string; icon: React.ElementType;
-  gradient: string; delay: number; trend?: { value: number };
+  accent: 'danger' | 'warning' | 'ink' | 'pickle'; delay: number; trend?: { value: number };
+  kicker: string;
 }) {
+  const accentBar: Record<string, string> = {
+    danger:  'bg-[var(--ft-signal)]',
+    warning: 'bg-[#d97706]',
+    ink:     'bg-[var(--ft-ink)]',
+    pickle:  'bg-[var(--ft-pickle)]',
+  };
+  const iconColor: Record<string, string> = {
+    danger:  'text-[var(--ft-signal)]',
+    warning: 'text-[#7c4a00]',
+    ink:     'text-[var(--ft-ink)]',
+    pickle:  'text-[var(--ft-pickle)]',
+  };
   return (
-    <GlassCard className="p-5" staggerIndex={delay}>
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${gradient} shadow-sm`}>
-          <Icon className="w-5 h-5 text-white" strokeWidth={2} />
-        </div>
+    <article
+      className="relative overflow-hidden border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-5 animate-fade-in-up transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[3px_3px_0_var(--ft-ink)]"
+      style={{ animationDelay: `${delay * 60}ms`, animationFillMode: 'both' }}
+    >
+      <span aria-hidden className={cn('absolute left-0 right-0 top-0 h-[2px]', accentBar[accent])} />
+      <div className="mb-2 flex items-center gap-2">
+        <span aria-hidden className="h-px w-5 bg-[var(--ft-ink)]" />
+        <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-[rgba(21,19,15,0.62)]">{kicker}</p>
+      </div>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <Icon className={cn('h-5 w-5', iconColor[accent])} strokeWidth={1.75} />
         {trend && trend.value !== 0 && (
-          <span className={cn("flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full", trend.value < 0 ? "text-fresh-700 bg-fresh-100/80" : "text-danger-600 bg-danger-100/80")}>
-            {trend.value < 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+          <span className={cn(
+            'inline-flex items-center gap-1 border px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-[0.14em]',
+            trend.value < 0
+              ? 'border-[rgba(90,110,0,0.55)] bg-[rgba(183,193,103,0.16)] text-[#3a4808]'
+              : 'border-[var(--ft-signal)] bg-[rgba(184,50,30,0.10)] text-[#8e2515]',
+          )}>
+            {trend.value < 0 ? <TrendingDown className="h-2.5 w-2.5" /> : <TrendingUp className="h-2.5 w-2.5" />}
             {Math.abs(trend.value).toFixed(0)}%
           </span>
         )}
       </div>
-      <p className="text-2xl font-bold text-slate-800 mb-0.5 tracking-tight">{value}</p>
-      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
-    </GlassCard>
+      <p className="font-display text-[28px] font-bold leading-none tracking-[-0.02em] text-[var(--ft-ink)] [text-wrap:balance]">{value}</p>
+      <p className="mt-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--ft-ink)]">{label}</p>
+      {sub && <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(21,19,15,0.50)]">{sub}</p>}
+    </article>
   );
 }
 
 function WastePage() {
+  const { t } = useAppPreferences();
   const { data: wasteLogs = [], isLoading } = useWasteLogs();
 
   const stats = useMemo(() => {
@@ -87,87 +112,92 @@ function WastePage() {
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
-      <PageHeader title="Waste Tracker" subtitle="Understand and reduce your food waste" icon={<BarChart3 className="w-5 h-5 text-danger-500" />} />
+      <PageHeader title={t("waste.title")} subtitle={t("waste.subtitle")} eyebrow={t("waste.eyebrow")} icon={<BarChart3 className="w-5 h-5 text-[var(--ft-signal)]" />} />
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <WasteStatCard label="Total Wasted"  value={countUpTotal.toString()} sub="items logged" icon={AlertTriangle} gradient="bg-gradient-to-br from-danger-400 to-danger-600"   delay={0} />
-        <WasteStatCard label="Total Cost"    value={`${stats.totalCost.toFixed(0)} kr`}  sub="estimated loss" icon={Coins}   gradient="bg-gradient-to-br from-warning-400 to-warning-600" delay={1} />
-        <WasteStatCard label="This Month"    value={`${stats.thisMonthCost.toFixed(0)} kr`} icon={Calendar} gradient="bg-gradient-to-br from-slate-500 to-slate-700" delay={2} trend={{ value: monthChange }} />
+      {/* Stats row — editorial parchment cards */}
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <WasteStatCard kicker="Stat · 01" label={t("waste.statItemsLogged")}   value={countUpTotal.toString()} sub={`${stats.totalItems} ${t("waste.statEntries")}`} icon={AlertTriangle} accent="danger"  delay={0} />
+        <WasteStatCard kicker="Stat · 02" label={t("waste.statEstimatedLoss")} value={`${stats.totalCost.toFixed(0)} kr`} sub={t("waste.statLifetime")}             icon={Coins}         accent="warning" delay={1} />
+        <WasteStatCard kicker="Stat · 03" label={t("waste.statThisMonth")}     value={`${stats.thisMonthCost.toFixed(0)} kr`}                       icon={Calendar}      accent="ink"     delay={2} trend={{ value: monthChange }} />
         <WasteStatCard
-          label="Most Wasted"
-          value={stats.topWasted[0]?.name ?? "No data yet"}
-          sub={stats.topWasted[0] ? `${stats.topWasted[0].count}\u00D7 wasted` : "Start tracking to see patterns"}
+          kicker="Stat · 04"
+          label={t("waste.statMostWasted")}
+          value={stats.topWasted[0]?.name ?? "—"}
+          sub={stats.topWasted[0] ? `${stats.topWasted[0].count}${t("waste.statTimesWasted")}` : t("waste.statNoData")}
           icon={BarChart3}
-          gradient="bg-gradient-to-br from-frost-500 to-frost-700"
+          accent="pickle"
           delay={3}
         />
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Weekly trend */}
-        <GlassCard className="p-5" staggerIndex={4}>
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-4 h-4 text-danger-500" />
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Weekly Trend</h3>
+        <section className="border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-5 animate-fade-in-up" style={{ animationDelay: '240ms', animationFillMode: 'both' }}>
+          <div className="mb-1 flex items-center gap-2">
+            <span aria-hidden className="h-px w-5 bg-[var(--ft-ink)]" />
+            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-[var(--ft-signal)]">Plate · 01</p>
           </div>
+          <h3 className="mb-4 font-display text-[20px] font-bold leading-tight tracking-[-0.02em] text-[var(--ft-ink)]">{t("waste.weeklyTrend")}</h3>
           <div className="relative">
-            {/* Y-axis grid lines */}
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="border-b border-slate-200/40" />
+            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="border-b border-dashed border-[rgba(21,19,15,0.16)]" />
               ))}
             </div>
-            <div className="flex items-end gap-2 h-32 relative">
+            <div className="relative flex h-32 items-end gap-2">
               {stats.weeklyTrend.map((week, i) => {
                 const height = (week.count / maxWeekCount) * 100;
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                  <div key={i} className="group relative flex flex-1 flex-col items-center gap-1">
                     <div
-                      className="w-full rounded-t-lg bg-gradient-to-t from-danger-400/70 to-danger-300/40 transition-all duration-500 hover:from-danger-500/80 hover:to-danger-400/50 cursor-default"
-                      style={{ height: `${height}%`, minHeight: week.count > 0 ? "6px" : "2px" }}
+                      className="w-full border border-[var(--ft-ink)] bg-[var(--ft-signal)] transition-all duration-500 hover:bg-[#a02a18]"
+                      style={{ height: `${height}%`, minHeight: week.count > 0 ? '6px' : '2px' }}
                     />
-                    {/* Hover tooltip */}
                     {week.count > 0 && (
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 glass-heavy rounded-lg text-xs font-semibold text-slate-700 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-10">
-                        {week.count} item{week.count > 1 ? "s" : ""} &middot; {week.cost.toFixed(0)} kr
+                      <div className="pointer-events-none absolute -top-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap border border-[var(--ft-ink)] bg-[var(--ft-bone)] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ft-ink)] opacity-0 shadow-[2px_2px_0_var(--ft-ink)] transition-opacity duration-200 group-hover:opacity-100">
+                        {week.count}× · {week.cost.toFixed(0)} kr
                       </div>
                     )}
-                    <span className="text-[9px] text-slate-400 truncate w-full text-center mt-0.5">{week.week.split(" ")[0]}</span>
+                    <span className="mt-0.5 w-full truncate text-center font-mono text-[9px] uppercase tracking-[0.14em] text-[rgba(21,19,15,0.50)]">{week.week.split(' ')[0]}</span>
                   </div>
                 );
               })}
             </div>
-            {/* Empty state overlay */}
             {stats.totalItems === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/30 rounded-xl">
-                <p className="text-xs text-slate-400 font-medium">Start tracking to see trends</p>
+              <div className="absolute inset-0 flex items-center justify-center bg-[var(--ft-paper)]/80">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.20em] text-[rgba(21,19,15,0.45)]">{t("waste.startTracking")}</p>
               </div>
             )}
           </div>
-        </GlassCard>
+        </section>
 
         {/* Category breakdown */}
-        <GlassCard className="p-5" staggerIndex={5}>
-          <div className="flex items-center gap-2 mb-4">
-            <Leaf className="w-4 h-4 text-fresh-500" />
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">By Category</h3>
+        <section className="border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-5 animate-fade-in-up" style={{ animationDelay: '300ms', animationFillMode: 'both' }}>
+          <div className="mb-1 flex items-center gap-2">
+            <span aria-hidden className="h-px w-5 bg-[var(--ft-ink)]" />
+            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-[var(--ft-pickle)]">Plate · 02</p>
           </div>
+          <h3 className="mb-4 flex items-center gap-2 font-display text-[20px] font-bold leading-tight tracking-[-0.02em] text-[var(--ft-ink)]">
+            <Leaf className="h-4 w-4 text-[var(--ft-pickle)]" strokeWidth={2} />
+            {t("waste.byCategory")}
+          </h3>
           {sortedCategories.length > 0 ? (
             <div className="space-y-3">
               {sortedCategories.slice(0, 5).map(([cat, data]) => (
                 <div key={cat}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-slate-700 flex items-center gap-1.5">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-[var(--ft-ink)]">
                       <span>{getCategoryEmoji(cat as Parameters<typeof getCategoryEmoji>[0])}</span>
                       {getCategoryLabel(cat as Parameters<typeof getCategoryLabel>[0])}
                     </span>
-                    <span className="text-xs text-slate-500 font-medium">{data.count}\u00D7 &middot; {data.cost.toFixed(0)} kr</span>
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[rgba(21,19,15,0.62)]">
+                      {data.count}× · {data.cost.toFixed(0)} kr
+                    </span>
                   </div>
-                  <div className="h-2 rounded-full bg-slate-100/80 overflow-hidden">
+                  <div className="h-2 border border-[var(--ft-ink)] bg-[var(--ft-bone)] overflow-hidden">
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-danger-400 to-danger-500 transition-all duration-700"
+                      className="h-full bg-[var(--ft-signal)] transition-all duration-700"
                       style={{ width: `${(data.count / maxCatCount) * 100}%` }}
                     />
                   </div>
@@ -176,64 +206,89 @@ function WastePage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">
-              <span className="text-3xl mb-2" role="img" aria-label="celebration">&#x1F389;</span>
-              <p className="text-sm text-slate-500 font-medium">No waste logged yet</p>
-              <p className="text-xs text-slate-400 mt-0.5">Keep up the great work!</p>
+              <span className="mb-2 font-display text-3xl text-[var(--ft-pickle)]">✺</span>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.20em] text-[var(--ft-ink)]">{t("waste.cleanLedger")}</p>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(21,19,15,0.50)]">{t("waste.nothingWasted")}</p>
             </div>
           )}
-        </GlassCard>
+        </section>
       </div>
 
       {/* Top wasted items */}
       {stats.topWasted.length > 0 && (
-        <GlassCard className="p-5 mb-4" staggerIndex={6}>
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-4 h-4 text-warning-500" />
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Most Wasted Items</h3>
+        <section className="mb-4 border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-5 animate-fade-in-up" style={{ animationDelay: '360ms', animationFillMode: 'both' }}>
+          <div className="mb-1 flex items-center gap-2">
+            <span aria-hidden className="h-px w-5 bg-[var(--ft-ink)]" />
+            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-[#7c4a00]">Plate · 03</p>
           </div>
-          <div className="space-y-2">
+          <h3 className="mb-4 flex items-center gap-2 font-display text-[20px] font-bold leading-tight tracking-[-0.02em] text-[var(--ft-ink)]">
+            <AlertTriangle className="h-4 w-4 text-[#7c4a00]" strokeWidth={2} />
+            {t("waste.repeatOffenders")}
+          </h3>
+          <ol className="divide-y divide-[rgba(21,19,15,0.18)] border border-[var(--ft-ink)]">
             {stats.topWasted.map((item, i) => (
-              <div key={item.name} className="flex items-center gap-3 p-3 glass rounded-xl hover:-translate-y-0.5 hover:shadow-glass-hover transition-all duration-200" style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
-                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-danger-400 to-danger-600 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">{i + 1}</span>
-                <span className="flex-1 font-medium text-slate-800">{item.name}</span>
-                <span className="text-sm text-danger-600 font-semibold">{item.count}\u00D7</span>
-              </div>
+              <li key={item.name} className="flex items-center gap-3 bg-[var(--ft-paper)] px-3 py-2.5 transition-colors hover:bg-[var(--ft-bone)]">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center border border-[var(--ft-ink)] bg-[var(--ft-signal)] font-mono text-[10px] font-bold text-[var(--ft-bone)]">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className="flex-1 truncate font-display text-[15px] font-semibold text-[var(--ft-ink)]">{item.name}</span>
+                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--ft-signal)]">{item.count}×</span>
+              </li>
             ))}
-          </div>
-        </GlassCard>
+          </ol>
+        </section>
       )}
 
-      {/* Recent waste log */}
+      {/* Recent waste log — newspaper-style data table */}
       {wasteLogs.length > 0 && (
-        <GlassCard className="p-5" staggerIndex={7}>
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Recent Waste Log</h3>
+        <section className="border border-[var(--ft-ink)] bg-[var(--ft-paper)] animate-fade-in-up" style={{ animationDelay: '420ms', animationFillMode: 'both' }}>
+          <div className="grid grid-cols-[1fr_auto] border-b border-[var(--ft-ink)] font-mono text-[10px] uppercase tracking-[0.20em]">
+            <div className="flex items-center gap-2 p-3 text-[var(--ft-ink)]">
+              <Calendar className="h-3.5 w-3.5" strokeWidth={2} />
+              {t("waste.recentLog")}
+            </div>
+            <div className="border-l border-[var(--ft-ink)] p-3 text-[var(--ft-signal)]">
+              {wasteLogs.length} {t("waste.total")}
+            </div>
           </div>
-          <div className="space-y-1">
+          <ul className="font-mono text-[12px]">
             {wasteLogs.slice(0, 10).map((log, i) => (
-              <div key={log.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/40 transition-colors animate-fade-in-up" style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}>
-                <span className="text-xl flex-shrink-0">{getCategoryEmoji(log.category as Parameters<typeof getCategoryEmoji>[0])}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{log.itemName}</p>
-                  <p className="text-xs text-slate-500 capitalize">{log.reason} &middot; {log.wastedDate}</p>
+              <li
+                key={log.id}
+                className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[rgba(21,19,15,0.18)] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-[var(--ft-bone)] animate-fade-in-up"
+                style={{ animationDelay: `${i * 30}ms`, animationFillMode: 'both' }}
+              >
+                <span className="text-base leading-none">{getCategoryEmoji(log.category as Parameters<typeof getCategoryEmoji>[0])}</span>
+                <div className="min-w-0">
+                  <p className="truncate font-display text-[14px] font-semibold tracking-[-0.005em] text-[var(--ft-ink)]">{log.itemName}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(21,19,15,0.55)]">
+                    <span className="capitalize">{log.reason}</span> · {log.wastedDate}
+                  </p>
                 </div>
-                <span className="text-sm font-semibold text-danger-600 flex-shrink-0">{log.estimatedCost.toFixed(0)} kr</span>
-              </div>
+                <span className="flex-shrink-0 border border-[var(--ft-signal)] bg-[rgba(184,50,30,0.08)] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ft-signal)]">
+                  {log.estimatedCost.toFixed(0)} kr
+                </span>
+              </li>
             ))}
-          </div>
-        </GlassCard>
+          </ul>
+        </section>
       )}
 
       {/* Global empty state */}
       {wasteLogs.length === 0 && (
-        <GlassCard className="text-center py-16 px-8" hover={false}>
-          <div className="text-6xl mb-4 animate-float inline-block" role="img" aria-label="celebration">&#x1F389;</div>
-          <h3 className="font-bold text-slate-800 text-lg mb-1.5">No waste logged yet!</h3>
-          <p className="text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
-            Great job keeping food waste down. When items expire or spoil, mark them as wasted to track your impact and find patterns.
+        <section className="relative border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-8 py-16 text-center shadow-[3px_3px_0_var(--ft-ink)]">
+          <span aria-hidden className="absolute left-0 top-0 h-3 w-3 border-l border-t border-[var(--ft-ink)]" />
+          <span aria-hidden className="absolute right-0 top-0 h-3 w-3 border-r border-t border-[var(--ft-ink)]" />
+          <span aria-hidden className="absolute bottom-0 left-0 h-3 w-3 border-b border-l border-[var(--ft-ink)]" />
+          <span aria-hidden className="absolute bottom-0 right-0 h-3 w-3 border-b border-r border-[var(--ft-ink)]" />
+          <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--ft-pickle)]">{t("waste.cleanLedger")}</p>
+          <h3 className="font-display text-[28px] font-bold leading-[1.1] tracking-[-0.025em] text-[var(--ft-ink)] [text-wrap:balance]">
+            {t("waste.emptyTitle")}
+          </h3>
+          <p className="mx-auto mt-3 max-w-sm text-[14px] leading-relaxed text-[rgba(21,19,15,0.62)]">
+            {t("waste.emptyBody")}
           </p>
-        </GlassCard>
+        </section>
       )}
     </div>
   );

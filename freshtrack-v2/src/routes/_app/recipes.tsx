@@ -11,7 +11,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Modal } from "@/components/ui/Modal";
 import GlassCard from "@/components/ui/GlassCard";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { PageSkeleton } from "@/components/ui/Skeleton";
+import EditorialEmpty from "@/components/ui/EditorialEmpty";
 import {
   BookOpen, ChefHat, Sparkles, RefreshCw, Check, X,
   Clock, Users, ChevronDown, ChevronUp, Settings2, Flame,
@@ -40,28 +42,34 @@ function applyRecipeFilter(recipes: (Recipe | AIRecipe)[], filter: RecipeFilter)
 function FilterPills({ filter, onChange }: { filter: RecipeFilter; onChange: (f: RecipeFilter) => void }) {
   const filters: { value: RecipeFilter; label: string; indicator?: string; emoji?: string }[] = [
     { value: "all", label: "All" },
-    { value: "zero_waste", label: "No Shopping Needed", indicator: "bg-fresh-400", emoji: "\u{1F373}" },
-    { value: "almost_there", label: "Almost There (\u22642 missing)", indicator: "bg-warning-400", emoji: "\u{1F6D2}" },
+    { value: "zero_waste", label: "No shopping needed", indicator: "bg-[var(--ft-pickle)]", emoji: "\u{1F373}" },
+    { value: "almost_there", label: "Almost there (\u22642 missing)", indicator: "bg-[#d97706]", emoji: "\u{1F6D2}" },
   ];
 
   return (
     <div className="flex gap-2 mb-5 flex-wrap animate-fade-in">
-      {filters.map(({ value, label, indicator, emoji }) => (
-        <button
-          key={value}
-          onClick={() => onChange(value)}
-          className={cn(
-            "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 border",
-            filter === value
-              ? "glass-heavy text-slate-800 shadow-glass border-white/60 ring-1 ring-frost-200/50"
-              : "glass text-slate-500 border-white/40 hover:border-frost-200 hover:text-slate-700 hover:-translate-y-0.5"
-          )}
-        >
-          {indicator && <span className={cn("w-2 h-2 rounded-full", indicator, filter === value && "ring-2 ring-offset-1 ring-offset-white/50", filter === value && indicator)} />}
-          {emoji && <span>{emoji}</span>}
-          {label}
-        </button>
-      ))}
+      <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[rgba(21,19,15,0.55)] self-center mr-1">
+        Filter \u00b7
+      </span>
+      {filters.map(({ value, label, indicator, emoji }) => {
+        const active = filter === value;
+        return (
+          <button
+            key={value}
+            onClick={() => onChange(value)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 border font-mono text-[11px] uppercase tracking-[0.16em] transition-all duration-150",
+              active
+                ? "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)]"
+                : "border-[var(--ft-ink)] bg-[var(--ft-paper)] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)] hover:-translate-y-0.5",
+            )}
+          >
+            {indicator && <span className={cn("h-2 w-2", indicator)} />}
+            {emoji && <span className="text-sm">{emoji}</span>}
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -70,19 +78,22 @@ function FilterPills({ filter, onChange }: { filter: RecipeFilter; onChange: (f:
 
 function MatchRing({ pct }: { pct: number }) {
   const r = 18, c = 2 * Math.PI * r;
-  const color = pct >= 80 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#94a3b8";
+  // Editorial palette: pickle (great), amber (partial), ink-faded (few)
+  const color = pct >= 80 ? "var(--ft-pickle)" : pct >= 50 ? "#b46c00" : "rgba(21,19,15,0.4)";
   const label = pct >= 80 ? "Great match" : pct >= 50 ? "Partial match" : "Few matches";
   return (
     <div className="relative group flex-shrink-0">
-      <svg width="48" height="48" viewBox="0 0 48 48">
-        <circle cx="24" cy="24" r={r} fill="none" stroke="#e2e8f0" strokeWidth="3" />
-        <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="3"
-          strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
-          strokeLinecap="round" transform="rotate(-90 24 24)"
-          style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.16,1,0.3,1)" }} />
-        <text x="24" y="28" textAnchor="middle" fontSize="10" fontWeight="700" fill={color}>{pct}%</text>
-      </svg>
-      <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 px-2 py-0.5 glass-heavy rounded-lg text-[10px] font-medium text-slate-600 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-10">
+      <div className="border border-[var(--ft-ink)] bg-[var(--ft-paper)] p-1 shadow-[2px_2px_0_var(--ft-ink)]">
+        <svg width="48" height="48" viewBox="0 0 48 48">
+          <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(21,19,15,0.15)" strokeWidth="2.5" />
+          <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="2.5"
+            strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
+            strokeLinecap="butt" transform="rotate(-90 24 24)"
+            style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.16,1,0.3,1)" }} />
+          <text x="24" y="28" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ft-ink)" fontFamily="Lora, serif">{pct}</text>
+        </svg>
+      </div>
+      <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 border border-[var(--ft-ink)] bg-[var(--ft-ink)] font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--ft-bone)] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-10 shadow-[2px_2px_0_var(--ft-pickle)]">
         {label}
       </div>
     </div>
@@ -92,20 +103,24 @@ function MatchRing({ pct }: { pct: number }) {
 // ── Macro badge strip (AI cards only) ────────────────────────────────────────
 
 function MacroBadges({ macros }: { macros: NonNullable<AIRecipe["estimatedMacros"]> }) {
+  // Editorial nutrition strip: ink-bordered ledger of macros
+  const items = [
+    { icon: <Flame className="w-3 h-3" />,   value: macros.calories, unit: "kcal",     accent: "var(--ft-signal)" },
+    { icon: <Zap className="w-3 h-3" />,     value: macros.protein,  unit: "g protein", accent: "var(--ft-ink)" },
+    { icon: null,                            value: macros.carbs,    unit: "g carbs",   accent: "var(--ft-pickle)" },
+    { icon: null,                            value: macros.fat,      unit: "g fat",     accent: "rgba(21,19,15,0.45)" },
+  ];
   return (
-    <div className="flex items-center gap-2 flex-wrap mt-2 mb-1">
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100/80 text-orange-700 border border-orange-200/50">
-        <Flame className="w-3 h-3" /> {macros.calories} kcal
-      </span>
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100/80 text-blue-700 border border-blue-200/50">
-        <Zap className="w-3 h-3" /> {macros.protein}g protein
-      </span>
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100/80 text-yellow-700 border border-yellow-200/50">
-        {macros.carbs}g carbs
-      </span>
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100/80 text-slate-600 border border-slate-200/50">
-        {macros.fat}g fat
-      </span>
+    <div className="grid grid-cols-4 border border-[var(--ft-ink)] bg-[var(--ft-paper)] mt-2 mb-1 divide-x divide-[var(--ft-ink)]">
+      {items.map((it, i) => (
+        <div key={i} className="flex flex-col items-center justify-center py-1.5 px-1">
+          <div className="flex items-center gap-1">
+            {it.icon && <span style={{ color: it.accent }}>{it.icon}</span>}
+            <span className="font-display text-base text-[var(--ft-ink)] leading-none">{it.value}</span>
+          </div>
+          <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.55)] mt-0.5">{it.unit}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -143,41 +158,57 @@ function RecipeCard({
   const hasMissing = recipe.missingIngredients.length > 0;
 
   return (
-    <GlassCard className={cn("overflow-hidden", ai && "ring-1 ring-frost-200/50")} staggerIndex={index}>
-      {ai && <div className="h-1 bg-gradient-to-r from-frost-400 via-purple-400 to-fresh-400" />}
+    <GlassCard className="overflow-hidden" staggerIndex={index} accentBar={ai ? "fresh" : undefined}>
       <div className="p-5">
+        {/* Recipe number kicker */}
+        <div className="mb-3 flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)]">
+            {ai ? "AI · plate" : savedRecipe ? "Saved · plate" : "Recipe · plate"} · {String(index + 1).padStart(2, "0")}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.5)]">
+            {recipe.matchPercentage}% match
+          </span>
+        </div>
         <div className="flex items-start gap-4">
           <MatchRing pct={recipe.matchPercentage} />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h3 className="font-bold text-slate-800">{recipe.title}</h3>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <h3 className="font-display text-2xl text-[var(--ft-ink)] leading-tight">{recipe.title}</h3>
               {ai && <Badge variant="info" size="sm"><Sparkles className="w-3 h-3 inline mr-0.5" />AI</Badge>}
               {savedRecipe?.source === "custom" && <Badge variant="success" size="sm">Yours</Badge>}
               {savedRecipe?.source === "ai_favourite" && <Badge variant="info" size="sm"><Star className="w-3 h-3 inline mr-0.5" />Favourite</Badge>}
             </div>
-            <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">
-              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{recipe.prepTime}m</span>
+            <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.2em] text-[rgba(21,19,15,0.55)] mb-3">
+              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{recipe.prepTime} min</span>
               <span className="flex items-center gap-1"><Users className="w-3 h-3" />{recipe.servings} servings</span>
             </div>
             {/* Estimated macros (AI only) */}
             {aiRecipe?.estimatedMacros && <MacroBadges macros={aiRecipe.estimatedMacros} />}
-            {/* Ingredient pills */}
-            <div className="flex flex-wrap gap-1.5 mt-2 mb-3">
-              {recipe.matchedIngredients.map((ing) => (
-                <span key={ing} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-fresh-100/80 text-fresh-700 border border-fresh-200/50">
-                  <Check className="w-2.5 h-2.5" /> {ing}
+            {/* Ingredient ledger */}
+            <div className="mt-3 mb-3 border border-[var(--ft-ink)] bg-[var(--ft-bone)]">
+              <div className="flex items-baseline justify-between border-b border-[var(--ft-ink)] px-2.5 py-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-[rgba(21,19,15,0.55)]">Pantry check</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--ft-pickle)]">
+                  {recipe.matchedIngredients.length} have · {recipe.missingIngredients.length} need
                 </span>
-              ))}
-              {recipe.missingIngredients.slice(0, 4).map((ing) => (
-                <span key={ing} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100/80 text-slate-500 border border-slate-200/50">
-                  <X className="w-2.5 h-2.5" /> {ing}
-                </span>
-              ))}
-              {recipe.missingIngredients.length > 4 && (
-                <span className="px-2 py-0.5 rounded-full text-xs bg-slate-100/80 text-slate-400 border border-slate-200/50">
-                  +{recipe.missingIngredients.length - 4} more
-                </span>
-              )}
+              </div>
+              <div className="flex flex-wrap gap-1.5 p-2.5">
+                {recipe.matchedIngredients.map((ing) => (
+                  <span key={ing} className="inline-flex items-center gap-1 px-2 py-0.5 border border-[var(--ft-pickle)] bg-[rgba(183,193,103,0.18)] font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--ft-ink)]">
+                    <Check className="w-2.5 h-2.5" /> {ing}
+                  </span>
+                ))}
+                {recipe.missingIngredients.slice(0, 4).map((ing) => (
+                  <span key={ing} className="inline-flex items-center gap-1 px-2 py-0.5 border border-dashed border-[rgba(21,19,15,0.35)] bg-[var(--ft-paper)] font-mono text-[10px] uppercase tracking-[0.12em] text-[rgba(21,19,15,0.55)]">
+                    <X className="w-2.5 h-2.5" /> {ing}
+                  </span>
+                ))}
+                {recipe.missingIngredients.length > 4 && (
+                  <span className="px-2 py-0.5 border border-dashed border-[rgba(21,19,15,0.3)] font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(21,19,15,0.5)]">
+                    +{recipe.missingIngredients.length - 4} more
+                  </span>
+                )}
+              </div>
             </div>
             {/* Tags */}
             <div className="flex flex-wrap gap-1">
@@ -186,23 +217,23 @@ function RecipeCard({
           </div>
         </div>
 
-        {/* Action buttons row */}
-        <div className="flex items-center gap-2 mt-4 flex-wrap">
+        {/* Action buttons row — brutalist editorial */}
+        <div className="flex items-center gap-2 mt-5 flex-wrap">
           {/* Add missing to shopping list */}
           {hasMissing && onAddToShoppingList && (
             <button
               onClick={() => onAddToShoppingList(recipe)}
               disabled={addedToList || isAddingToList}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all border",
+                "inline-flex items-center gap-2 px-3.5 py-2 border font-mono text-[11px] uppercase tracking-[0.18em] transition-all duration-150",
                 addedToList
-                  ? "bg-fresh-100 text-fresh-700 border-fresh-200/60 cursor-default"
-                  : "bg-gradient-to-r from-frost-500 to-frost-600 text-white border-frost-500 shadow-sm hover:from-frost-600 hover:to-frost-700 disabled:opacity-60"
+                  ? "border-[var(--ft-pickle)] bg-[rgba(183,193,103,0.18)] text-[var(--ft-ink)] cursor-default"
+                  : "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none disabled:opacity-60"
               )}
             >
               {isAddingToList ? (
                 <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="h-3 w-3 border-2 border-[var(--ft-bone)] border-t-transparent rounded-full animate-spin" />
                   Adding…
                 </>
               ) : addedToList ? (
@@ -213,7 +244,7 @@ function RecipeCard({
               ) : (
                 <>
                   <ShoppingCart className="w-3.5 h-3.5" />
-                  Add {recipe.missingIngredients.length} missing to list
+                  Add {recipe.missingIngredients.length} to list
                 </>
               )}
             </button>
@@ -224,14 +255,14 @@ function RecipeCard({
               onClick={() => onSaveFavourite(recipe)}
               disabled={isSaved || isSavingRecipe}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all border",
+                "inline-flex items-center gap-2 px-3.5 py-2 border font-mono text-[11px] uppercase tracking-[0.18em] transition-all duration-150",
                 isSaved
-                  ? "bg-warning-100 text-warning-700 border-warning-200/60 cursor-default"
-                  : "glass text-slate-700 border-white/40 hover:border-warning-200 hover:text-warning-700 disabled:opacity-60",
+                  ? "border-[#b46c00] bg-[rgba(245,158,11,0.12)] text-[#b46c00] cursor-default"
+                  : "border-[var(--ft-ink)] bg-[var(--ft-paper)] text-[var(--ft-ink)] hover:bg-[rgba(245,158,11,0.12)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)] disabled:opacity-60",
               )}
             >
               <Star className="w-3.5 h-3.5" />
-              {isSaved ? "Saved favourite" : isSavingRecipe ? "Saving…" : "Save favourite"}
+              {isSaved ? "Saved" : isSavingRecipe ? "Saving…" : "Save favourite"}
             </button>
           )}
 
@@ -239,7 +270,7 @@ function RecipeCard({
             <button
               onClick={() => onDeleteSaved(savedRecipe)}
               disabled={isDeletingSaved}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold glass text-danger-600 border border-white/40 hover:border-danger-200 transition-all disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-3.5 py-2 border border-[var(--ft-signal)] bg-[var(--ft-paper)] font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ft-signal)] hover:bg-[var(--ft-signal)] hover:text-[var(--ft-bone)] transition-colors duration-150 disabled:opacity-60"
             >
               <Trash2 className="w-3.5 h-3.5" />
               {isDeletingSaved ? "Removing…" : "Remove"}
@@ -252,39 +283,39 @@ function RecipeCard({
               {cookedState === "idle" && (
                 <button
                   onClick={() => onCookRecipe(recipe)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold glass text-slate-700 border border-white/40 hover:border-fresh-200 hover:text-fresh-700 transition-all"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ft-ink)] hover:bg-[var(--ft-pickle)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)] transition-all duration-150"
                 >
                   <ChefHat className="w-3.5 h-3.5" />
-                  I made this!
+                  I made this
                 </button>
               )}
               {cookedState === "confirm" && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium glass border border-warning-200/60 bg-warning-50/60 animate-fade-in">
-                  <span className="text-slate-700">Reduce ingredient quantities?</span>
+                <div className="inline-flex items-center gap-2 px-3.5 py-2 border border-[#b46c00] bg-[rgba(245,158,11,0.1)] animate-fade-in">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ft-ink)]">Reduce quantities?</span>
                   <button
                     onClick={() => onCookConfirm?.(recipe)}
-                    className="px-2 py-0.5 rounded-lg bg-fresh-500 text-white text-xs font-bold hover:bg-fresh-600 transition-colors"
+                    className="px-2 py-0.5 border border-[var(--ft-ink)] bg-[var(--ft-pickle)] font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ft-ink)] hover:bg-[var(--ft-ink)] hover:text-[var(--ft-bone)] transition-colors"
                   >
                     Yes
                   </button>
                   <button
                     onClick={onCookCancel}
-                    className="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-300 transition-colors"
+                    className="px-2 py-0.5 border border-[var(--ft-ink)] bg-[var(--ft-bone)] font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ft-ink)] hover:bg-[var(--ft-ink)] hover:text-[var(--ft-bone)] transition-colors"
                   >
                     No
                   </button>
                 </div>
               )}
               {cookedState === "cooking" && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium glass text-slate-600 border border-white/40 animate-fade-in">
-                  <div className="w-3.5 h-3.5 border-2 border-frost-400 border-t-transparent rounded-full animate-spin" />
-                  Updating inventory…
+                <div className="inline-flex items-center gap-2 px-3.5 py-2 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ft-ink)] animate-fade-in">
+                  <div className="h-3.5 w-3.5 border-2 border-[var(--ft-ink)] border-t-transparent rounded-full animate-spin" />
+                  Filing changes…
                 </div>
               )}
               {cookedState === "done" && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-fresh-100 text-fresh-700 border border-fresh-200/60 animate-fade-in">
+                <div className="inline-flex items-center gap-2 px-3.5 py-2 border border-[var(--ft-pickle)] bg-[rgba(183,193,103,0.18)] font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ft-ink)] animate-fade-in">
                   <CheckCircle className="w-3.5 h-3.5" />
-                  Cooked!
+                  Cooked
                 </div>
               )}
             </>
@@ -294,19 +325,19 @@ function RecipeCard({
         {/* Instructions toggle */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-3 w-full flex items-center justify-between px-4 py-2.5 glass rounded-xl text-sm font-medium text-slate-700 hover:bg-white/70 transition-all"
+          className="mt-4 w-full flex items-center justify-between px-4 py-2.5 border border-[var(--ft-ink)] bg-[var(--ft-bone)] font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ft-ink)] hover:bg-[var(--ft-pickle)] transition-colors duration-150"
         >
-          <span>{expanded ? "Hide" : "Show"} Instructions</span>
+          <span>{expanded ? "Hide" : "Read"} the method</span>
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
 
         {expanded && (
-          <ol className="mt-3 space-y-2 animate-fade-in-down">
+          <ol className="mt-4 space-y-3 animate-fade-in-down border-l-2 border-[var(--ft-pickle)] pl-4">
             {recipe.instructions.map((step, i) => (
-              <li key={i} className="flex gap-3 text-sm text-slate-700"
+              <li key={i} className="flex gap-3 text-sm font-sans text-[rgba(21,19,15,0.78)] leading-relaxed"
                 style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}>
-                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-frost-400 to-frost-600 text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">{i + 1}</span>
-                {step}
+                <span className="h-6 w-6 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5 tracking-[0.08em] text-[var(--ft-ink)] shadow-[1px_1px_0_var(--ft-pickle)]">{String(i + 1).padStart(2, "0")}</span>
+                <span className="pt-0.5">{step}</span>
               </li>
             ))}
           </ol>
@@ -369,60 +400,66 @@ function PreferencesPanel({
     }));
   };
 
+  // Editorial pill / segmented helpers (local — only used here)
+  const pill = (active: boolean) => cn(
+    "inline-flex items-center gap-1.5 px-3 py-1.5 border font-mono text-[11px] uppercase tracking-[0.16em] transition-all duration-150",
+    active
+      ? "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)]"
+      : "border-[var(--ft-ink)] bg-[var(--ft-paper)] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)] hover:-translate-y-0.5"
+  );
+  const segment = (active: boolean) => cn(
+    "flex-1 flex flex-col items-center py-2 px-1 border transition-all duration-150",
+    active
+      ? "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-signal)]"
+      : "border-[var(--ft-ink)] bg-[var(--ft-paper)] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)]"
+  );
+  const sectionLabel = "font-mono text-[10px] uppercase tracking-[0.24em] text-[rgba(21,19,15,0.6)] mb-2 flex items-center gap-1.5";
+
   return (
-    <GlassCard className="mb-6 overflow-hidden animate-fade-in-down" hover={false}>
-      <div className="h-1 bg-gradient-to-r from-frost-400 via-purple-400 to-fresh-400" />
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-frost-500" /> AI Recipe Preferences
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+    <GlassCard className="mb-6 overflow-hidden animate-fade-in-down" hover={false} accentBar="fresh">
+      <div className="p-6">
+        <div className="flex items-baseline justify-between mb-5 border-b border-[var(--ft-ink)] pb-3">
+          <div className="flex items-baseline gap-3">
+            <Settings2 className="w-4 h-4 text-[var(--ft-pickle)] self-center" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)]">Editorial briefing</span>
+            <h3 className="font-display text-2xl text-[var(--ft-ink)] leading-none">Recipe preferences</h3>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="border border-[var(--ft-ink)] bg-[var(--ft-bone)] p-1 text-[var(--ft-ink)] hover:bg-[var(--ft-ink)] hover:text-[var(--ft-bone)] transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Meal goal */}
-        <div className="mb-5">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Meal Goal</p>
+        <div className="mb-6">
+          <p className={sectionLabel}>Sub · 01 · meal goal</p>
           <div className="flex flex-wrap gap-2">
             {MEAL_GOALS.map(({ value, label, emoji }) => (
               <button
                 key={value}
                 onClick={() => setDraft((d) => ({ ...d, mealGoal: d.mealGoal === value ? null : value }))}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all border",
-                  draft.mealGoal === value
-                    ? "bg-frost-500 text-white border-frost-500 shadow-sm"
-                    : "glass text-slate-600 border-white/40 hover:border-frost-200"
-                )}
+                className={pill(draft.mealGoal === value)}
               >
-                <span>{emoji}</span> {label}
+                <span className="text-sm">{emoji}</span> {label}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
           {/* Calorie range */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-              <Flame className="w-3 h-3 inline mr-1 text-orange-400" />Calories / Serving
+            <p className={sectionLabel}>
+              <Flame className="w-3 h-3 text-[var(--ft-signal)]" />Sub · 02 · calories / serving
             </p>
-            <div className="flex gap-2">
-              {CALORIE_RANGES.map(({ value, label, sub }) => (
+            <div className="flex">
+              {CALORIE_RANGES.map(({ value, label, sub }, i) => (
                 <button
                   key={value}
                   onClick={() => setDraft((d) => ({ ...d, calorieRange: d.calorieRange === value ? null : value }))}
-                  className={cn(
-                    "flex-1 flex flex-col items-center py-2 px-1 rounded-xl text-xs font-medium transition-all border",
-                    draft.calorieRange === value
-                      ? "bg-orange-400 text-white border-orange-400 shadow-sm"
-                      : "glass text-slate-600 border-white/40 hover:border-orange-200"
-                  )}
+                  className={cn(segment(draft.calorieRange === value), i > 0 && "-ml-px")}
                 >
-                  <span className="font-semibold">{label}</span>
-                  <span className={cn("text-[10px] mt-0.5", draft.calorieRange === value ? "text-orange-100" : "text-slate-400")}>{sub}</span>
+                  <span className="font-display text-base leading-none">{label}</span>
+                  <span className={cn("font-mono text-[9px] uppercase tracking-[0.18em] mt-1", draft.calorieRange === value ? "text-[var(--ft-pickle)]" : "text-[rgba(21,19,15,0.55)]")}>{sub}</span>
                 </button>
               ))}
             </div>
@@ -430,23 +467,18 @@ function PreferencesPanel({
 
           {/* Protein target */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-              <Zap className="w-3 h-3 inline mr-1 text-blue-400" />Protein / Serving
+            <p className={sectionLabel}>
+              <Zap className="w-3 h-3 text-[var(--ft-ink)]" />Sub · 03 · protein / serving
             </p>
-            <div className="flex gap-2">
-              {PROTEIN_TARGETS.map(({ value, label, sub }) => (
+            <div className="flex">
+              {PROTEIN_TARGETS.map(({ value, label, sub }, i) => (
                 <button
                   key={value}
                   onClick={() => setDraft((d) => ({ ...d, proteinTarget: d.proteinTarget === value ? null : value }))}
-                  className={cn(
-                    "flex-1 flex flex-col items-center py-2 px-1 rounded-xl text-xs font-medium transition-all border",
-                    draft.proteinTarget === value
-                      ? "bg-blue-500 text-white border-blue-500 shadow-sm"
-                      : "glass text-slate-600 border-white/40 hover:border-blue-200"
-                  )}
+                  className={cn(segment(draft.proteinTarget === value), i > 0 && "-ml-px")}
                 >
-                  <span className="font-semibold">{label}</span>
-                  <span className={cn("text-[10px] mt-0.5", draft.proteinTarget === value ? "text-blue-100" : "text-slate-400")}>{sub}</span>
+                  <span className="font-display text-base leading-none">{label}</span>
+                  <span className={cn("font-mono text-[9px] uppercase tracking-[0.18em] mt-1", draft.proteinTarget === value ? "text-[var(--ft-pickle)]" : "text-[rgba(21,19,15,0.55)]")}>{sub}</span>
                 </button>
               ))}
             </div>
@@ -454,43 +486,39 @@ function PreferencesPanel({
         </div>
 
         {/* Dietary restrictions */}
-        <div className="mb-5">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-            <Leaf className="w-3 h-3 inline mr-1 text-fresh-500" />Dietary Restrictions
+        <div className="mb-6">
+          <p className={sectionLabel}>
+            <Leaf className="w-3 h-3 text-[var(--ft-pickle)]" />Sub · 04 · dietary restrictions
           </p>
           <div className="flex flex-wrap gap-2">
             {DIETARY_RESTRICTIONS.map(({ value, label, emoji }) => (
               <button
                 key={value}
                 onClick={() => toggleRestriction(value)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all border",
-                  draft.dietaryRestrictions.includes(value)
-                    ? "bg-fresh-500 text-white border-fresh-500 shadow-sm"
-                    : "glass text-slate-600 border-white/40 hover:border-fresh-200"
-                )}
+                className={pill(draft.dietaryRestrictions.includes(value))}
               >
-                <span>{emoji}</span> {label}
+                <span className="text-sm">{emoji}</span> {label}
               </button>
             ))}
           </div>
         </div>
 
         {/* Servings */}
-        <div className="mb-5">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-            <Users className="w-3 h-3 inline mr-1" />Servings
+        <div className="mb-6">
+          <p className={sectionLabel}>
+            <Users className="w-3 h-3" />Sub · 05 · servings
           </p>
-          <div className="flex gap-2">
-            {([1, 2, 4] as const).map((n) => (
+          <div className="flex">
+            {([1, 2, 4] as const).map((n, i) => (
               <button
                 key={n}
                 onClick={() => setDraft((d) => ({ ...d, servings: n }))}
                 className={cn(
-                  "w-12 h-10 rounded-xl text-sm font-bold transition-all border",
+                  "w-14 h-12 border font-display text-2xl transition-all duration-150",
+                  i > 0 && "-ml-px",
                   draft.servings === n
-                    ? "bg-slate-700 text-white border-slate-700 shadow-sm"
-                    : "glass text-slate-600 border-white/40 hover:border-slate-300"
+                    ? "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[2px_2px_0_var(--ft-pickle)] z-10 relative"
+                    : "border-[var(--ft-ink)] bg-[var(--ft-paper)] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)]"
                 )}
               >
                 {n}
@@ -500,17 +528,17 @@ function PreferencesPanel({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100/60">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-dashed border-[rgba(21,19,15,0.3)]">
+          <button onClick={onClose} className="px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.6)] hover:text-[var(--ft-signal)] transition-colors">
             Cancel
           </button>
           <button
             onClick={() => { onSave(draft); onClose(); }}
             disabled={isSaving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-frost-500 to-frost-600 text-white shadow-sm hover:from-frost-600 hover:to-frost-700 transition-all disabled:opacity-60"
+            className="inline-flex items-center gap-2 px-5 py-2 border border-[var(--ft-ink)] bg-[var(--ft-ink)] font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all duration-150 disabled:opacity-60"
           >
             <Save className="w-3.5 h-3.5" />
-            {isSaving ? "Saving…" : "Save & Apply"}
+            {isSaving ? "Filing…" : "Save & apply"}
           </button>
         </div>
       </div>
@@ -546,13 +574,14 @@ function PreferencesSummary({ preferences, onEdit }: { preferences: RecipePrefer
   if (active.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap mb-4 animate-fade-in">
+    <div className="flex items-center gap-2 flex-wrap mb-5 animate-fade-in">
+      <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-pickle)] mr-1">Briefing ·</span>
       {active.map((label) => (
-        <span key={label} className="px-2.5 py-1 rounded-full text-xs font-medium glass text-slate-600 border border-white/40">
+        <span key={label} className="inline-flex items-center px-2.5 py-1 border border-[var(--ft-ink)] bg-[var(--ft-paper)] font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--ft-ink)]">
           {label}
         </span>
       ))}
-      <button onClick={onEdit} className="text-xs text-frost-600 hover:text-frost-800 font-medium underline underline-offset-2 transition-colors">
+      <button onClick={onEdit} className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-ink)] underline underline-offset-4 decoration-[var(--ft-pickle)] hover:text-[var(--ft-signal)] transition-colors">
         Edit
       </button>
     </div>
@@ -635,81 +664,96 @@ function RecipeForm({
         });
       }}
     >
-      <div className="space-y-1.5">
-        <label htmlFor="recipe-title" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Recipe name</label>
+      {/* Editorial form fields — sharp ink-bordered parchment inputs */}
+      <FormField id="recipe-title" label="01 · Recipe name">
         <input
           id="recipe-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          className={editorialInput}
           placeholder="Tuesday tomato pasta"
           required
         />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <label htmlFor="recipe-prep-time" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Prep time</label>
+      </FormField>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField id="recipe-prep-time" label="02 · Prep time (min)">
           <input
             id="recipe-prep-time"
             type="number"
             min={1}
             value={prepTime}
             onChange={(event) => setPrepTime(Number(event.target.value))}
-            className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none"
+            className={editorialInput}
           />
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="recipe-servings" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Servings</label>
+        </FormField>
+        <FormField id="recipe-servings" label="03 · Servings">
           <input
             id="recipe-servings"
             type="number"
             min={1}
             value={servings}
             onChange={(event) => setServings(Number(event.target.value))}
-            className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none"
+            className={editorialInput}
           />
-        </div>
+        </FormField>
       </div>
-      <div className="space-y-1.5">
-        <label htmlFor="recipe-ingredients" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Ingredients, one per line</label>
+      <FormField id="recipe-ingredients" label="04 · Ingredients · one per line" hint="Pantry items, raw">
         <textarea
           id="recipe-ingredients"
           value={ingredients}
           onChange={(event) => setIngredients(event.target.value)}
-          className="w-full min-h-32 glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          className={cn(editorialInput, "min-h-32 font-mono text-[12px] leading-relaxed")}
           placeholder={"tomato\npasta\ngarlic\nolive oil"}
           required
         />
-      </div>
-      <div className="space-y-1.5">
-        <label htmlFor="recipe-instructions" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Instructions, one step per line</label>
+      </FormField>
+      <FormField id="recipe-instructions" label="05 · Method · one step per line" hint="Numbered when displayed">
         <textarea
           id="recipe-instructions"
           value={instructions}
           onChange={(event) => setInstructions(event.target.value)}
-          className="w-full min-h-32 glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          className={cn(editorialInput, "min-h-32 leading-relaxed")}
           placeholder={"Boil pasta.\nWarm garlic and tomatoes.\nToss together."}
           required
         />
-      </div>
-      <div className="space-y-1.5">
-        <label htmlFor="recipe-tags" className="text-xs font-bold text-slate-600 uppercase tracking-wide">Tags</label>
+      </FormField>
+      <FormField id="recipe-tags" label="06 · Tags · comma-separated">
         <input
           id="recipe-tags"
           value={tags}
           onChange={(event) => setTags(event.target.value)}
-          className="w-full glass rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+          className={editorialInput}
           placeholder="quick, dinner, leftover-friendly"
         />
-      </div>
+      </FormField>
       <button
         type="submit"
         disabled={isSaving}
-        className="w-full py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-bold shadow-glow-frost transition-all disabled:opacity-60"
+        className="w-full py-3 border border-[var(--ft-ink)] bg-[var(--ft-ink)] font-mono text-[12px] uppercase tracking-[0.28em] text-[var(--ft-bone)] shadow-[4px_4px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-pickle)] transition-all duration-150 disabled:opacity-60"
       >
-        {isSaving ? "Saving…" : "Save recipe"}
+        {isSaving ? "Filing the recipe…" : "File this recipe"}
       </button>
     </form>
+  );
+}
+
+// ── Editorial form helpers ──────────────────────────────────────────────────
+const editorialInput =
+  "w-full border border-[var(--ft-ink)] bg-[var(--ft-paper)] px-3.5 py-2.5 text-sm text-[var(--ft-ink)] placeholder:text-[rgba(21,19,15,0.4)] " +
+  "outline-none transition-all duration-150 font-sans " +
+  "focus:shadow-[3px_3px_0_var(--ft-pickle)] focus:-translate-y-px";
+
+function FormField({
+  id, label, hint, children,
+}: { id: string; label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[var(--ft-ink)]">{label}</span>
+        {hint && <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[rgba(21,19,15,0.5)]">{hint}</span>}
+      </label>
+      {children}
+    </div>
   );
 }
 
@@ -879,76 +923,73 @@ function RecipesPage() {
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <PageHeader
+        eyebrow="Section · Kitchen Desk"
         title="Recipes"
-        subtitle="What can you cook with what you have?"
-        icon={<BookOpen className="w-5 h-5 text-warning-600" />}
+        subtitle="A daily column of what you can cook with what's already in the larder."
+        icon={<BookOpen className="w-5 h-5 text-[var(--ft-pickle)]" />}
         actions={
-          <button
+          <Button
             onClick={() => setShowAddRecipeModal(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost transition-all active:scale-[0.97]"
+            variant="primary"
+            icon={<Plus className="w-4 h-4" />}
           >
-            <Plus className="w-4 h-4" /> Add Recipe
-          </button>
+            File a recipe
+          </Button>
         }
       />
 
-      {/* Tab switcher */}
-      <div className="flex items-center gap-3 mb-5 animate-fade-in-up stagger-1">
-        <div className="flex gap-1 glass rounded-2xl p-1.5" role="tablist" aria-label="Recipe source">
-          <button
-            onClick={() => setActiveTab("saved")}
-            role="tab"
-            aria-selected={activeTab === "saved"}
-            className={cn(
-              "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-              activeTab === "saved"
-                ? "glass-heavy text-slate-800 shadow-glass"
-                : "text-slate-500 hover:text-slate-700 hover:bg-white/30"
-            )}
-          >
-            <Star className={cn("w-4 h-4", activeTab === "saved" && "text-warning-500")} /> Saved
-          </button>
-          <button
-            onClick={() => setActiveTab("classic")}
-            role="tab"
-            aria-selected={activeTab === "classic"}
-            className={cn(
-              "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-              activeTab === "classic"
-                ? "glass-heavy text-slate-800 shadow-glass"
-                : "text-slate-500 hover:text-slate-700 hover:bg-white/30"
-            )}
-          >
-            <ChefHat className={cn("w-4 h-4", activeTab === "classic" && "text-warning-500")} /> Classic
-          </button>
-          <button
-            onClick={handleAITab}
-            role="tab"
-            aria-selected={activeTab === "ai"}
-            className={cn(
-              "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-              activeTab === "ai"
-                ? "glass-heavy text-slate-800 shadow-glass"
-                : "text-slate-500 hover:text-slate-700 hover:bg-white/30"
-            )}
-          >
-            <Sparkles className={cn("w-4 h-4", activeTab === "ai" && "text-frost-500")} /> AI
-          </button>
+      {/* Editorial tab strip — 3-up segmented with kicker numerals */}
+      <div className="flex items-stretch gap-3 mb-6 animate-fade-in-up stagger-1">
+        <div className="relative flex-1 border border-[var(--ft-ink)] bg-[var(--ft-paper)]" role="tablist" aria-label="Recipe source">
+          <span aria-hidden className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-[var(--ft-pickle)]" />
+          <div className="grid grid-cols-3 divide-x divide-[var(--ft-ink)]">
+            {([
+              { key: "saved",   label: "Saved",   ord: "01", icon: Star,     onClick: () => setActiveTab("saved") },
+              { key: "classic", label: "Classic", ord: "02", icon: ChefHat,  onClick: () => setActiveTab("classic") },
+              { key: "ai",      label: "AI",      ord: "03", icon: Sparkles, onClick: handleAITab },
+            ] as const).map((tab) => {
+              const active = activeTab === tab.key;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={tab.onClick}
+                  role="tab"
+                  aria-selected={active}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 px-3 py-3 transition-colors duration-150",
+                    active ? "bg-[var(--ft-ink)] text-[var(--ft-bone)]" : "text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)]",
+                  )}
+                >
+                  <span className={cn(
+                    "font-mono text-[9px] tracking-[0.32em]",
+                    active ? "text-[var(--ft-pickle)]" : "text-[rgba(21,19,15,0.45)]",
+                  )}>
+                    {tab.ord}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="font-mono text-[11px] uppercase tracking-[0.2em]">{tab.label}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Preferences toggle (AI tab only) */}
+        {/* Preferences toggle (AI tab only) — brutalist editorial */}
         {activeTab === "ai" && (
           <button
             onClick={() => setShowPrefs((v) => !v)}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border",
+              "inline-flex items-center gap-2 px-4 border font-mono text-[11px] uppercase tracking-[0.2em] transition-all duration-150",
               showPrefs
-                ? "bg-frost-500 text-white border-frost-500 shadow-sm"
-                : "glass text-slate-600 border-white/40 hover:border-frost-200"
+                ? "border-[var(--ft-ink)] bg-[var(--ft-ink)] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)]"
+                : "border-[var(--ft-ink)] bg-[var(--ft-paper)] text-[var(--ft-ink)] hover:bg-[rgba(183,193,103,0.12)] hover:-translate-y-0.5 hover:shadow-[2px_2px_0_var(--ft-ink)]"
             )}
           >
             <Settings2 className="w-4 h-4" />
-            Preferences
+            Briefing
           </button>
         )}
       </div>
@@ -980,26 +1021,18 @@ function RecipesPage() {
                 ))}
               </div>
             ) : (
-              <GlassCard className="text-center py-12 px-8" hover={false}>
-                <div className="text-4xl mb-3 inline-block">🔍</div>
-                <h3 className="font-bold text-slate-800 mb-1.5">No saved recipes match this filter</h3>
-                <p className="text-sm text-slate-500">Try a different filter or save a new recipe.</p>
-              </GlassCard>
+              <EditorialEmpty icon="🔍" kicker="Filter notice" title="No saved recipes match this filter." body="Try a different filter or save a new recipe." />
             )
           ) : (
-            <GlassCard className="text-center py-16 px-8" hover={false}>
-              <div className="text-6xl mb-5 animate-float inline-block">⭐</div>
-              <h3 className="font-bold text-slate-800 text-lg mb-2">No saved recipes yet</h3>
-              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
-                Add your own household recipes or save favourites from the AI tab.
-              </p>
-              <button
+            <EditorialEmpty icon="⭐" kicker="Recipe ledger · empty" title="No saved recipes yet." body="Add your own household recipes or save favourites from the AI tab.">
+              <Button
                 onClick={() => setShowAddRecipeModal(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost transition-all active:scale-[0.97]"
+                variant="primary"
+                icon={<Plus className="w-4 h-4" />}
               >
-                <Plus className="w-4 h-4" /> Add Recipe
-              </button>
-            </GlassCard>
+                File a recipe
+              </Button>
+            </EditorialEmpty>
           )}
         </>
       )}
@@ -1026,23 +1059,14 @@ function RecipesPage() {
                 ))}
               </div>
             ) : (
-              <GlassCard className="text-center py-12 px-8" hover={false}>
-                <div className="text-4xl mb-3 inline-block">🔍</div>
-                <h3 className="font-bold text-slate-800 mb-1.5">No recipes match this filter</h3>
-                <p className="text-sm text-slate-500">Try a different filter or add more items to your inventory.</p>
-              </GlassCard>
+              <EditorialEmpty icon="🔍" kicker="Filter notice" title="No recipes match this filter." body="Try a different filter or add more items to your inventory." />
             )
           ) : (
-            <GlassCard className="text-center py-16 px-8" hover={false}>
-              <div className="text-6xl mb-5 animate-float inline-block">&#x1F468;&#x200D;&#x1F373;</div>
-              <h3 className="font-bold text-slate-800 text-lg mb-2">No recipe matches yet</h3>
-              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
-                Add more items to your inventory and we'll match you with recipes you can cook right now.
-              </p>
-              <Link to="/items" className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-frost-600 to-frost-500 text-white rounded-xl text-sm font-semibold shadow-glow-frost hover:shadow-[0_0_28px_rgba(14,165,233,0.35)] transition-all active:scale-[0.97]">
-                <Package className="w-4 h-4" /> Add Items
+            <EditorialEmpty icon="&#x1F468;&#x200D;&#x1F373;" kicker="Pantry · sparse" title="No recipe matches yet." body="Add more items to your inventory and we'll match you with recipes you can cook right now.">
+              <Link to="/items" className="inline-flex items-center gap-2 px-5 py-2.5 border border-[var(--ft-ink)] bg-[var(--ft-ink)] font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ft-bone)] shadow-[3px_3px_0_var(--ft-pickle)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all duration-150">
+                <Package className="w-4 h-4" /> Add items
               </Link>
-            </GlassCard>
+            </EditorialEmpty>
           )}
         </>
       )}
@@ -1066,33 +1090,36 @@ function RecipesPage() {
           )}
 
           {ai.status === "loading" && (
-            <GlassCard variant="frost" className="p-8 text-center" hover={false}>
-              <div className="flex items-center justify-center gap-2 mb-3">
+            <GlassCard variant="frost" className="p-10 text-center" hover={false} accentBar="fresh">
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-pickle)] mb-3">On the wire</p>
+              <div className="flex items-center justify-center gap-2 mb-4">
                 {[0,1,2].map((i) => (
-                  <div key={i} className="w-2.5 h-2.5 rounded-full bg-frost-400 animate-bounce-subtle" style={{ animationDelay: `${i * 0.15}s` }} />
+                  <div key={i} className="w-2.5 h-2.5 bg-[var(--ft-ink)] animate-bounce-subtle" style={{ animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
-              <p className="text-frost-800 font-medium">Claude is crafting personalised recipes for your inventory…</p>
+              <p className="font-display text-xl text-[var(--ft-ink)] leading-tight">Claude is composing recipes for your larder.</p>
             </GlassCard>
           )}
 
           {ai.status === "no-key" && (
-            <GlassCard variant="warning" className="p-6" hover={false}>
-              <h3 className="font-bold text-warning-800 mb-2">API Key Required</h3>
-              <p className="text-sm text-warning-700 mb-3">
-                For local dev, add <code className="bg-warning-100 px-1 rounded">ANTHROPIC_API_KEY</code> to{" "}
-                <code className="bg-warning-100 px-1 rounded">.dev.vars</code> (same names as production). For deployed Workers, use{" "}
-                <code className="bg-warning-100 px-1 rounded">wrangler secret put ANTHROPIC_API_KEY</code>.
+            <GlassCard variant="warning" className="p-6" hover={false} accentBar="warning">
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[#b46c00] mb-2">Configuration · stop press</p>
+              <h3 className="font-display text-2xl text-[var(--ft-ink)] mb-3 leading-tight">API key required</h3>
+              <p className="font-sans text-sm text-[rgba(21,19,15,0.75)]">
+                For local dev, add <code className="border border-[#b46c00] bg-[rgba(245,158,11,0.12)] px-1.5 py-0.5 font-mono text-[11px]">ANTHROPIC_API_KEY</code> to{" "}
+                <code className="border border-[#b46c00] bg-[rgba(245,158,11,0.12)] px-1.5 py-0.5 font-mono text-[11px]">.dev.vars</code>. For deployed Workers, use{" "}
+                <code className="border border-[#b46c00] bg-[rgba(245,158,11,0.12)] px-1.5 py-0.5 font-mono text-[11px]">wrangler secret put ANTHROPIC_API_KEY</code>.
               </p>
             </GlassCard>
           )}
 
           {ai.status === "error" && (
-            <GlassCard variant="danger" className="p-6" hover={false}>
-              <p className="text-sm text-danger-700 mb-3">{ai.error}</p>
+            <GlassCard variant="danger" className="p-6" hover={false} accentBar="danger">
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[var(--ft-signal)] mb-2">Stop press</p>
+              <p className="font-sans text-sm text-[rgba(21,19,15,0.78)] mb-4">{ai.error}</p>
               <button
                 onClick={() => ai.suggest(items, preferences)}
-                className="px-4 py-2 glass text-danger-700 rounded-xl text-sm font-semibold hover:bg-danger-50 transition-all flex items-center gap-1.5"
+                className="inline-flex items-center gap-2 px-4 py-2 border border-[var(--ft-signal)] bg-[var(--ft-paper)] font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ft-signal)] hover:bg-[var(--ft-signal)] hover:text-[var(--ft-bone)] transition-colors duration-150"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Retry
               </button>
@@ -1101,13 +1128,13 @@ function RecipesPage() {
 
           {ai.status === "success" && (
             <>
-              <div className="flex items-center justify-between mb-4 animate-fade-in">
-                <p className="text-xs text-slate-500">
-                  {ai.cachedAt ? "Cached · " : ""}AI-generated · macros are estimates per serving
+              <div className="flex items-baseline justify-between mb-5 border-b border-[var(--ft-ink)] pb-2 animate-fade-in">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[rgba(21,19,15,0.55)]">
+                  {ai.cachedAt ? "Cached · " : ""}AI · macros estimated per serving
                 </p>
                 <button
                   onClick={() => runAISuggest()}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-frost-600 hover:text-frost-800 transition-colors"
+                  className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ft-ink)] underline underline-offset-4 decoration-[var(--ft-pickle)] hover:text-[var(--ft-signal)] transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" /> Refresh
                 </button>
@@ -1134,21 +1161,13 @@ function RecipesPage() {
                   ))}
                 </div>
               ) : (
-                <GlassCard className="text-center py-12 px-8" hover={false}>
-                  <div className="text-4xl mb-3 inline-block">🔍</div>
-                  <h3 className="font-bold text-slate-800 mb-1.5">No recipes match this filter</h3>
-                  <p className="text-sm text-slate-500">Try a different filter or refresh AI suggestions.</p>
-                </GlassCard>
+                <EditorialEmpty icon="🔍" kicker="Filter notice" title="No recipes match this filter." body="Try a different filter or refresh the AI." />
               )}
             </>
           )}
 
           {ai.status === "idle" && items.length === 0 && (
-            <GlassCard className="text-center py-16 px-8" hover={false}>
-              <div className="text-5xl mb-4 animate-float inline-block">🛒</div>
-              <h3 className="font-bold text-slate-800 mb-1.5">Your inventory is empty</h3>
-              <p className="text-sm text-slate-500">Add some food items first and Claude will suggest recipes tailored to what you have.</p>
-            </GlassCard>
+            <EditorialEmpty icon="🛒" kicker="Larder · empty" title="Your inventory is empty." body="Add some food items first and Claude will suggest recipes tailored to what you have." />
           )}
         </>
       )}

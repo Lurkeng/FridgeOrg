@@ -5,16 +5,18 @@ import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
 import { KassalappClient, buildPriceComparison } from "@/lib/kassalapp";
 import { getUserHouseholdId } from "@/server/household-context";
+import { resolveActiveListId } from "@/server/shopping-list-active";
 
 export const fetchItemPrices = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator(z.object({ id: z.string() }))
+  .inputValidator(z.object({ id: z.string(), listId: z.string().optional() }))
   .handler(async ({ context, data }) => {
     const db = getDb();
     const apiKey = context.env.KASSALAPP_API_KEY;
     if (!apiKey) throw new Error("KASSALAPP_API_KEY not configured");
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) throw new Error("No household");
+    const activeListId = await resolveActiveListId(db, householdId, context.userId, data.listId);
 
     const [item] = await db
       .select()
@@ -23,6 +25,7 @@ export const fetchItemPrices = createServerFn({ method: "POST" })
         and(
           eq(schema.shoppingListItems.id, data.id),
           eq(schema.shoppingListItems.householdId, householdId),
+          eq(schema.shoppingListItems.listId, activeListId),
         ),
       );
     if (!item) throw new Error("Item not found");
@@ -50,6 +53,7 @@ export const fetchItemPrices = createServerFn({ method: "POST" })
         and(
           eq(schema.shoppingListItems.id, data.id),
           eq(schema.shoppingListItems.householdId, householdId),
+          eq(schema.shoppingListItems.listId, activeListId),
         ),
       );
 
@@ -58,13 +62,15 @@ export const fetchItemPrices = createServerFn({ method: "POST" })
 
 export const fetchAllPrices = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .handler(async ({ context }) => {
+  .inputValidator(z.object({ listId: z.string().optional() }).optional())
+  .handler(async ({ context, data }) => {
     const db = getDb();
     const apiKey = context.env.KASSALAPP_API_KEY;
     if (!apiKey) throw new Error("KASSALAPP_API_KEY not configured");
 
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) return { updated: 0 };
+    const activeListId = await resolveActiveListId(db, householdId, context.userId, data?.listId);
 
     const items = await db
       .select()
@@ -72,6 +78,7 @@ export const fetchAllPrices = createServerFn({ method: "POST" })
       .where(
         and(
           eq(schema.shoppingListItems.householdId, householdId),
+          eq(schema.shoppingListItems.listId, activeListId),
           eq(schema.shoppingListItems.checked, false),
         ),
       );
@@ -98,7 +105,7 @@ export const fetchAllPrices = createServerFn({ method: "POST" })
               comparisonPrices:   JSON.stringify(comparison),
               updatedAt:          new Date().toISOString(),
             })
-            .where(eq(schema.shoppingListItems.id, item.id));
+            .where(and(eq(schema.shoppingListItems.id, item.id), eq(schema.shoppingListItems.listId, activeListId)));
           updated++;
         }
       } catch {

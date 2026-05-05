@@ -9,9 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AuthResetRouteImport } from './routes/auth.reset'
 import { Route as AppWasteRouteImport } from './routes/_app/waste'
 import { Route as AppShoppingRouteImport } from './routes/_app/shopping'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
@@ -21,6 +24,16 @@ import { Route as AppItemsRouteImport } from './routes/_app/items'
 import { Route as AppDealsRouteImport } from './routes/_app/deals'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -34,6 +47,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const AuthResetRoute = AuthResetRouteImport.update({
+  id: '/reset',
+  path: '/reset',
+  getParentRoute: () => AuthRoute,
 } as any)
 const AppWasteRoute = AppWasteRouteImport.update({
   id: '/waste',
@@ -78,7 +96,9 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/deals': typeof AppDealsRoute
   '/items': typeof AppItemsRoute
   '/recipes': typeof AppRecipesRoute
@@ -86,10 +106,13 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/shopping': typeof AppShoppingRoute
   '/waste': typeof AppWasteRoute
+  '/auth/reset': typeof AuthResetRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/deals': typeof AppDealsRoute
   '/items': typeof AppItemsRoute
   '/recipes': typeof AppRecipesRoute
@@ -97,13 +120,16 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/shopping': typeof AppShoppingRoute
   '/waste': typeof AppWasteRoute
+  '/auth/reset': typeof AuthResetRoute
   '/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/_app/deals': typeof AppDealsRoute
   '/_app/items': typeof AppItemsRoute
   '/_app/recipes': typeof AppRecipesRoute
@@ -111,6 +137,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/shopping': typeof AppShoppingRoute
   '/_app/waste': typeof AppWasteRoute
+  '/auth/reset': typeof AuthResetRoute
   '/_app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -119,6 +146,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/privacy'
+    | '/terms'
     | '/deals'
     | '/items'
     | '/recipes'
@@ -126,10 +155,13 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shopping'
     | '/waste'
+    | '/auth/reset'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/privacy'
+    | '/terms'
     | '/deals'
     | '/items'
     | '/recipes'
@@ -137,12 +169,15 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shopping'
     | '/waste'
+    | '/auth/reset'
     | '/'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/_app'
     | '/auth'
+    | '/privacy'
+    | '/terms'
     | '/_app/deals'
     | '/_app/items'
     | '/_app/recipes'
@@ -150,18 +185,35 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/shopping'
     | '/_app/waste'
+    | '/auth/reset'
     | '/_app/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
-  AuthRoute: typeof AuthRoute
+  AuthRoute: typeof AuthRouteWithChildren
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -182,6 +234,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/auth/reset': {
+      id: '/auth/reset'
+      path: '/reset'
+      fullPath: '/auth/reset'
+      preLoaderRoute: typeof AuthResetRouteImport
+      parentRoute: typeof AuthRoute
     }
     '/_app/waste': {
       id: '/_app/waste'
@@ -266,9 +325,21 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface AuthRouteChildren {
+  AuthResetRoute: typeof AuthResetRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthResetRoute: AuthResetRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
-  AuthRoute: AuthRoute,
+  AuthRoute: AuthRouteWithChildren,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

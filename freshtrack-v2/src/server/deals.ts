@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
 import { KassalappClient, processProducts, extractPriceDrops, type KassalProduct, type PriceDropProduct } from "@/lib/kassalapp";
 import { getUserHouseholdId } from "@/server/household-context";
+import { resolveActiveListId } from "@/server/shopping-list-active";
 
 export interface StoreTotalEntry {
   store: string;
@@ -48,13 +49,15 @@ export const searchProducts = createServerFn({ method: "POST" })
 
 export const getDealsForShoppingList = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .handler(async ({ context }) => {
+  .inputValidator(z.object({ listId: z.string().optional() }).optional())
+  .handler(async ({ context, data }) => {
     const db = getDb();
     const apiKey = context.env.KASSALAPP_API_KEY;
     if (!apiKey) return { deals: [], storeTotals: [], missingKey: true };
 
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) return { deals: [], storeTotals: [], missingKey: false };
+    const activeListId = await resolveActiveListId(db, householdId, context.userId, data?.listId);
 
     // Get unchecked shopping list items
     const items = await db
@@ -63,6 +66,7 @@ export const getDealsForShoppingList = createServerFn({ method: "GET" })
       .where(
         and(
           eq(schema.shoppingListItems.householdId, householdId),
+          eq(schema.shoppingListItems.listId, activeListId),
           eq(schema.shoppingListItems.checked, false),
         ),
       );

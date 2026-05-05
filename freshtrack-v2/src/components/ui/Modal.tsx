@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { X } from 'lucide-react';
+import X from 'lucide-react/dist/esm/icons/x';
 
 interface ModalProps {
   isOpen: boolean;
@@ -73,19 +73,43 @@ export function Modal({ isOpen, onClose, title, subtitle, children, size = 'md' 
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={cn('relative w-full animate-scale-in glass-heavy border border-[var(--ft-ink)] bg-[var(--ft-paper)]', sizeClasses[size])}
+        className={cn(
+          'relative w-full animate-scale-in border border-[var(--ft-ink)] bg-[var(--ft-paper)]',
+          'shadow-[6px_6px_0_var(--ft-ink)]',
+          sizeClasses[size],
+        )}
       >
-        <div className="flex items-start justify-between px-6 py-5 border-b border-[var(--ft-ink)]">
-          <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--ft-signal)]">FreshTrack</p>
-            <h2 id={titleId} className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-[var(--ft-ink)]">{title}</h2>
-            {subtitle && <p className="text-sm text-[rgba(21,19,15,0.62)] mt-1">{subtitle}</p>}
+        {/* Top accent bar — pickle / signal alternating bands */}
+        <div aria-hidden className="flex h-1.5">
+          <span className="flex-1 bg-[var(--ft-pickle)]" />
+          <span className="flex-1 bg-[var(--ft-ink)]" />
+          <span className="flex-1 bg-[var(--ft-signal)]" />
+        </div>
+        <div className="flex items-start justify-between gap-4 px-7 py-6 border-b border-[var(--ft-ink)]">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5 mb-2">
+              <span className="h-px w-6 bg-[var(--ft-ink)]" aria-hidden />
+              <p className="font-mono text-[9px] font-bold uppercase tracking-[0.28em] text-[var(--ft-signal)]">Dialog</p>
+            </div>
+            <h2
+              id={titleId}
+              className="font-display text-[28px] font-bold leading-[1.05] tracking-[-0.025em] text-[var(--ft-ink)] [text-wrap:balance]"
+            >
+              {title}
+            </h2>
+            {subtitle && (
+              <p className="mt-2 max-w-md text-[13px] leading-relaxed text-[rgba(21,19,15,0.62)]">{subtitle}</p>
+            )}
           </div>
-          <button onClick={onClose} className="ml-4 flex-shrink-0 border border-[var(--ft-ink)] p-1.5 text-[var(--ft-ink)] transition-all hover:bg-[var(--ft-pickle)]" aria-label="Close">
-            <X className="w-4 h-4" />
+          <button
+            onClick={onClose}
+            className="ml-4 flex h-8 w-8 flex-shrink-0 items-center justify-center border border-[var(--ft-ink)] bg-[var(--ft-bone)] text-[var(--ft-ink)] transition-all hover:bg-[var(--ft-signal)] hover:text-[var(--ft-bone)] hover:rotate-90"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" strokeWidth={2} />
           </button>
         </div>
-        <div className="px-6 py-5 max-h-[72vh] overflow-y-auto scrollbar-thin">
+        <div className="px-7 py-6 max-h-[72vh] overflow-y-auto scrollbar-thin">
           {children}
         </div>
       </div>

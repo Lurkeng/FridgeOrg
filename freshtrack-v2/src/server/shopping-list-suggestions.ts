@@ -1,15 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { eq, and, asc, desc, lte, gte, sql } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth";
 import { getUserHouseholdId } from "@/server/household-context";
+import { resolveActiveListId } from "@/server/shopping-list-active";
+import { mergePatterns, computePredictions } from "@/lib/shopping-list/predictions";
 
 export const getRestockPredictions = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .handler(async ({ context }) => {
+  .inputValidator(z.object({ listId: z.string().optional() }).optional())
+  .handler(async ({ context, data }) => {
     const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) return { predictions: [] };
+    const activeListId = await resolveActiveListId(db, householdId, context.userId, data?.listId);
 
     const foodPatterns = await db
       .select({
@@ -37,85 +42,13 @@ export const getRestockPredictions = createServerFn({ method: "GET" })
       .groupBy(sql`lower(${schema.wasteLogs.itemName})`)
       .having(sql`count(*) >= 2`);
 
-    const patternMap = new Map<string, {
-      name: string;
-      category: string;
-      count: number;
-      minDate: string;
-      maxDate: string;
-    }>();
-
-    for (const row of foodPatterns) {
-      patternMap.set(row.name, {
-        name: row.name,
-        category: row.category,
-        count: row.count,
-        minDate: row.minDate,
-        maxDate: row.maxDate,
-      });
-    }
-
-    for (const row of wastePatterns) {
-      const existing = patternMap.get(row.name);
-      if (!existing) {
-        patternMap.set(row.name, {
-          name: row.name,
-          category: row.category,
-          count: row.count,
-          minDate: row.minDate,
-          maxDate: row.maxDate,
-        });
-      } else {
-        const mergedMinDate = row.minDate < existing.minDate ? row.minDate : existing.minDate;
-        const mergedMaxDate = row.maxDate > existing.maxDate ? row.maxDate : existing.maxDate;
-        patternMap.set(row.name, {
-          ...existing,
-          count: existing.count + row.count,
-          minDate: mergedMinDate,
-          maxDate: mergedMaxDate,
-        });
-      }
-    }
-
-    const now = new Date();
-    const todayJulian = Math.floor(now.getTime() / 86400000);
-
-    const predictions: Array<{
-      name: string;
-      category: string;
-      averageIntervalDays: number;
-      daysSinceLastPurchase: number;
-      daysUntilNeeded: number;
-      purchaseCount: number;
-    }> = [];
-
-    for (const pattern of Array.from(patternMap.values())) {
-      if (pattern.count < 2) continue;
-
-      const minJulian = Math.floor(new Date(pattern.minDate).getTime() / 86400000);
-      const maxJulian = Math.floor(new Date(pattern.maxDate).getTime() / 86400000);
-      const dateRange = maxJulian - minJulian;
-      if (dateRange <= 0) continue;
-
-      const averageInterval = dateRange / (pattern.count - 1);
-      const daysSinceLast = todayJulian - maxJulian;
-      const daysUntilNeeded = Math.round(averageInterval - daysSinceLast);
-      if (daysUntilNeeded > 3) continue;
-
-      predictions.push({
-        name: pattern.name,
-        category: pattern.category,
-        averageIntervalDays: Math.round(averageInterval),
-        daysSinceLastPurchase: daysSinceLast,
-        daysUntilNeeded,
-        purchaseCount: pattern.count,
-      });
-    }
+    const patternMap = mergePatterns(foodPatterns, wastePatterns);
+    const predictions = computePredictions(patternMap, new Date());
 
     const currentShoppingItems = await db
       .select({ name: schema.shoppingListItems.name })
       .from(schema.shoppingListItems)
-      .where(eq(schema.shoppingListItems.householdId, householdId));
+      .where(and(eq(schema.shoppingListItems.householdId, householdId), eq(schema.shoppingListItems.listId, activeListId)));
 
     const currentFoodItems = await db
       .select({ name: schema.foodItems.name })
@@ -127,7 +60,6 @@ export const getRestockPredictions = createServerFn({ method: "GET" })
 
     const filtered = predictions
       .filter((p) => !shoppingNames.has(p.name) && !inventoryNames.has(p.name))
-      .sort((a, b) => a.daysUntilNeeded - b.daysUntilNeeded)
       .slice(0, 10);
 
     return { predictions: filtered };
@@ -135,10 +67,12 @@ export const getRestockPredictions = createServerFn({ method: "GET" })
 
 export const getRestockSuggestions = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .handler(async ({ context }) => {
+  .inputValidator(z.object({ listId: z.string().optional() }).optional())
+  .handler(async ({ context, data }) => {
     const db = getDb();
     const householdId = await getUserHouseholdId(db, context.userId);
     if (!householdId) return { recentItems: [], expiringItems: [] };
+    const activeListId = await resolveActiveListId(db, householdId, context.userId, data?.listId);
 
     const wasteRaw = await db
       .select({
@@ -185,7 +119,7 @@ export const getRestockSuggestions = createServerFn({ method: "GET" })
     const currentItems = await db
       .select({ name: schema.shoppingListItems.name })
       .from(schema.shoppingListItems)
-      .where(eq(schema.shoppingListItems.householdId, householdId));
+      .where(and(eq(schema.shoppingListItems.householdId, householdId), eq(schema.shoppingListItems.listId, activeListId)));
 
     const currentNames = new Set(currentItems.map((i) => i.name.toLowerCase()));
 

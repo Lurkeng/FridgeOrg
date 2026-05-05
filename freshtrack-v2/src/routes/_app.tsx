@@ -30,8 +30,15 @@ function AppLayout() {
 
   return (
     <div className="dashboard-editorial flex h-screen overflow-hidden">
+      {/* Skip-to-content link — keyboard/screen-reader shortcut, visually hidden until focused */}
+      <a
+        href="#main-content"
+        className="absolute left-2 top-2 z-[200] -translate-y-16 bg-[var(--ft-ink)] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.20em] text-[var(--ft-bone)] transition-transform focus:translate-y-0"
+      >
+        Skip to content
+      </a>
       <Sidebar />
-      <main className="dashboard-scroll flex-1 overflow-y-auto animate-page-enter pt-14 md:pt-0">
+      <main id="main-content" className="dashboard-scroll flex-1 overflow-y-auto animate-page-enter pt-14 md:pt-0">
         <Outlet />
       </main>
     </div>

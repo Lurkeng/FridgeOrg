@@ -128,7 +128,12 @@ export const notificationPreferences = sqliteTable("notification_preferences", {
   userId:     text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
   daysBefore: integer("days_before").notNull().default(2),
   enabled:    integer("enabled", { mode: "boolean" }).default(true),
+  channel:    text("channel", { enum: ["in_app", "email_ready"] }).notNull().default("in_app"),
+  digestCadence: text("digest_cadence", { enum: ["daily", "weekly"] }).notNull().default("daily"),
+  quietHoursStart: text("quiet_hours_start").notNull().default("22:00"),
+  quietHoursEnd: text("quiet_hours_end").notNull().default("07:00"),
   createdAt:  text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt:  text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
 export const recipePreferences = sqliteTable("recipe_preferences", {
@@ -165,10 +170,24 @@ export const savedRecipes = sqliteTable("saved_recipes", {
 }));
 
 // ── Shopping list ──────────────────────────────────────────────────────────
+export const shoppingLists = sqliteTable("shopping_lists", {
+  id:          text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  householdId: text("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
+  name:        text("name").notNull(),
+  description: text("description"),
+  isDefault:   integer("is_default", { mode: "boolean" }).notNull().default(false),
+  createdBy:   text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt:   text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt:   text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  householdIdx: index("idx_sl_household").on(table.householdId),
+  defaultIdx: index("idx_sl_default").on(table.householdId, table.isDefault),
+}));
 
 export const shoppingListItems = sqliteTable("shopping_list_items", {
   id:          text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   householdId: text("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
+  listId:      text("list_id").references(() => shoppingLists.id, { onDelete: "set null" }),
   name:        text("name").notNull(),
   category:    text("category", { enum: FOOD_CATEGORIES }).notNull().default("other"),
   quantity:    real("quantity").notNull().default(1),
@@ -186,7 +205,29 @@ export const shoppingListItems = sqliteTable("shopping_list_items", {
   updatedAt:   text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
   householdIdx: index("idx_sli_household").on(table.householdId),
+  listIdx:      index("idx_sli_list").on(table.listId),
   checkedIdx:   index("idx_sli_checked").on(table.checked),
+}));
+
+export const purchaseHistory = sqliteTable("purchase_history", {
+  id:                   text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  householdId:          text("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
+  listId:               text("list_id").references(() => shoppingLists.id, { onDelete: "set null" }),
+  sourceShoppingItemId: text("source_shopping_item_id"),
+  name:                 text("name").notNull(),
+  category:             text("category", { enum: FOOD_CATEGORIES }).notNull().default("other"),
+  quantity:             real("quantity").notNull().default(1),
+  unit:                 text("unit").notNull().default("item"),
+  price:                real("price"),
+  store:                text("store"),
+  barcode:              text("barcode"),
+  storedLocation:       text("stored_location", { enum: ["fridge", "freezer", "pantry"] }).notNull(),
+  purchasedAt:          text("purchased_at").notNull().$defaultFn(() => new Date().toISOString()),
+  createdBy:            text("created_by").references(() => users.id, { onDelete: "set null" }),
+}, (table) => ({
+  householdIdx: index("idx_ph_household").on(table.householdId),
+  listIdx:      index("idx_ph_list").on(table.listId),
+  purchasedAtIdx: index("idx_ph_purchased_at").on(table.purchasedAt),
 }));
 
 // ── Achievements / Gamification ───────────────────────────────────────────
@@ -211,7 +252,11 @@ export type WasteLogRow           = typeof wasteLogs.$inferSelect;
 export type NotificationPref      = typeof notificationPreferences.$inferSelect;
 export type NewFoodItem           = typeof foodItems.$inferInsert;
 export type NewWasteLog           = typeof wasteLogs.$inferInsert;
+export type ShoppingListRow       = typeof shoppingLists.$inferSelect;
+export type NewShoppingList       = typeof shoppingLists.$inferInsert;
 export type ShoppingListItemRow   = typeof shoppingListItems.$inferSelect;
 export type NewShoppingListItem   = typeof shoppingListItems.$inferInsert;
+export type PurchaseHistoryRow    = typeof purchaseHistory.$inferSelect;
+export type NewPurchaseHistoryRow = typeof purchaseHistory.$inferInsert;
 export type AchievementRow        = typeof achievements.$inferSelect;
 export type NewAchievement        = typeof achievements.$inferInsert;
